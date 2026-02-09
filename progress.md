@@ -53,3 +53,26 @@ TODO / Next suggestions:
   - `grass-mowed.png` is now a single flat tone (no stripe pattern).
   - `grass-unmowed.png` includes visible strand/blade texture.
 - Verified in screenshot: `mowing-poc-game/output/web-game-grass-fix/shot-0.png`.
+
+- Built text-first tycoon meta POC in new folder `tycoon-poc-text` with:
+  - `index.html`, `styles.css`, `game.js`, and `README.md`.
+  - Multi-day loop states: `planning` -> `performance` -> `report`.
+  - Customer/job model including `pattern_preference` (`circle`/`stripe`/`none`).
+  - Resolution math with quality multiplier, pattern modifier (+5% match / -5% mismatch except `none`), fuel + maintenance costs, churn + conversion handling, and upgrade purchasing (3 mower tiers).
+  - Deterministic hooks: `window.render_game_to_text()` and `window.advanceTime(ms)`.
+
+- Adjusted controls to be compatible with the Playwright skill client key map:
+  - Planning: Up/Down cursor, Space toggle, Enter confirm.
+  - Performance: Up/Down score, Left/Right cycle pattern, Enter resolve.
+  - Report: `A` (or `U`) buy upgrade, Enter next day.
+
+- Ran automated Playwright loop against `http://127.0.0.1:4174` and validated output artifacts in `tycoon-poc-text/output/web-game`:
+  - Screenshots: `shot-0.png`..`shot-2.png`.
+  - State snapshots: `state-0.json`..`state-2.json`.
+  - State progression confirms day advancement and cash/upgrades changing across iterations (e.g., Day 2 -> Day 4, mower tier moved to `gas_push`).
+  - No page error artifact files emitted.
+
+TODO / Next suggestions:
+- Add a dedicated seeded simulation mode endpoint (run N days without UI input) for faster economy balancing.
+- Surface richer report details in `render_game_to_text` for direct assertion tests (per-job expected vs actual multipliers).
+- Optionally port this text loop into the existing mowing POC as a pre/post-mow meta layer.

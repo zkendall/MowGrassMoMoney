@@ -8,3 +8,4 @@ node_modules/
 !**/npm-shrinkwrap.json
 !**/yarn.lock
 !**/pnpm-lock.yaml
+tycoon-poc-text/output/
