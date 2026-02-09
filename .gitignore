@@ -1,0 +1,10 @@
+# Node dependencies (recreatable from manifests/lockfiles)
+node_modules/
+**/node_modules/
+
+# Keep dependency manifests and lockfiles tracked
+!**/package.json
+!**/package-lock.json
+!**/npm-shrinkwrap.json
+!**/yarn.lock
+!**/pnpm-lock.yaml
