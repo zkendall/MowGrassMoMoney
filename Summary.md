@@ -7,7 +7,7 @@ This is a lawn mowing empire building simulation game. There are two primary act
 
 The player's goal is to make money, "number go up".
 
-The game should balance cozy aesthetic and ambition (like Stardew Valley).
+The game should balance cozy aesthetic and ambition (like Stardew Valley), with a top-down 2D visual style and somewhat muted, indie-leaning color tones.
 
 # Mow Lawns 
 You will mow lawns in real time using the controller, and paid based on customer satisfaction.
