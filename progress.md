@@ -40,3 +40,16 @@ TODO / Next suggestions:
 - Increased mower turning sharpness by raising base `turnRate` from `2.3` to `3.4`.
 - Increased grass mow chunk size by changing mow-grid cell size from `10` to `18` pixels (larger mowable chunks, easier coverage).
 - Fixed mower sprite facing direction by flipping sprite heading offset from `+PI/2` to `-PI/2` so the mower points the correct way while moving.
+- Added procedural background music using Web Audio API (no external audio files).
+- Music starts on first user interaction and loops with a simple bass/pad pattern.
+- Added mute toggle with `M` and HUD status text (`Music: On/Off`).
+- Updated steering pivot model so heading rotates around a point near the mower front instead of center.
+- Implemented front-pivot turn helper with collision-safe fallback to partial center rotation if blocked.
+- Set music default to off by initializing `state.musicMuted` and `music.muted` to `true`.
+- Added real grass sprite assets: `mowing-poc-game/assets/grass-unmowed.png` and `mowing-poc-game/assets/grass-mowed.png`.
+- Updated `drawMowGrid()` to render per-cell grass via image sprites (with existing color fallback if images fail to load).
+- Validated via Playwright screenshot: `mowing-poc-game/output/web-game-grass-sprites/shot-0.png`.
+- Regenerated grass sprites per updated art direction:
+  - `grass-mowed.png` is now a single flat tone (no stripe pattern).
+  - `grass-unmowed.png` includes visible strand/blade texture.
+- Verified in screenshot: `mowing-poc-game/output/web-game-grass-fix/shot-0.png`.

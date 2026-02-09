@@ -21,6 +21,21 @@
     mowerSprite.loaded = true;
   };
 
+  const grassSprites = {
+    unmowed: new Image(),
+    mowed: new Image(),
+    unmowedLoaded: false,
+    mowedLoaded: false,
+  };
+  grassSprites.unmowed.src = 'assets/grass-unmowed.png';
+  grassSprites.mowed.src = 'assets/grass-mowed.png';
+  grassSprites.unmowed.onload = () => {
+    grassSprites.unmowedLoaded = true;
+  };
+  grassSprites.mowed.onload = () => {
+    grassSprites.mowedLoaded = true;
+  };
+
   const scene = {
     lawn: { x: 145, y: 130, w: 665, h: 455 },
     house: { x: 95, y: 20, w: 770, h: 95 },
@@ -73,7 +88,95 @@
     coverage: 0,
     lastWinAt: null,
     steerDisplay: 0,
+    musicMuted: true,
   };
+
+  const music = {
+    ctx: null,
+    master: null,
+    started: false,
+    muted: true,
+    step: 0,
+    timerId: null,
+    bassOsc: null,
+    bassGain: null,
+    padOsc: null,
+    padGain: null,
+  };
+
+  function midiToHz(note) {
+    return 440 * (2 ** ((note - 69) / 12));
+  }
+
+  function setMusicMuted(isMuted) {
+    music.muted = isMuted;
+    state.musicMuted = isMuted;
+    if (music.master && music.ctx) {
+      const now = music.ctx.currentTime;
+      music.master.gain.cancelScheduledValues(now);
+      music.master.gain.setTargetAtTime(isMuted ? 0 : 0.09, now, 0.05);
+    }
+  }
+
+  function ensureMusicStarted() {
+    if (!music.ctx) {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      music.ctx = new AudioCtx();
+      music.master = music.ctx.createGain();
+      music.master.gain.value = 0.09;
+      music.master.connect(music.ctx.destination);
+
+      const padFilter = music.ctx.createBiquadFilter();
+      padFilter.type = 'lowpass';
+      padFilter.frequency.value = 850;
+      padFilter.Q.value = 0.8;
+      padFilter.connect(music.master);
+
+      music.padOsc = music.ctx.createOscillator();
+      music.padOsc.type = 'triangle';
+      music.padGain = music.ctx.createGain();
+      music.padGain.gain.value = 0.03;
+      music.padOsc.connect(music.padGain);
+      music.padGain.connect(padFilter);
+      music.padOsc.start();
+
+      music.bassOsc = music.ctx.createOscillator();
+      music.bassOsc.type = 'sine';
+      music.bassGain = music.ctx.createGain();
+      music.bassGain.gain.value = 0.045;
+      music.bassOsc.connect(music.bassGain);
+      music.bassGain.connect(music.master);
+      music.bassOsc.start();
+    }
+
+    music.ctx.resume();
+    if (music.started) return;
+    music.started = true;
+
+    const bassPattern = [40, 40, 43, 45, 47, 45, 43, 40];
+    const padPattern = [52, 55, 59, 57];
+
+    music.timerId = window.setInterval(() => {
+      if (!music.ctx || !music.bassOsc || !music.padOsc) return;
+      const now = music.ctx.currentTime;
+      const bassNote = bassPattern[music.step % bassPattern.length];
+      const padNote = padPattern[music.step % padPattern.length];
+
+      music.bassOsc.frequency.setTargetAtTime(midiToHz(bassNote), now, 0.08);
+      music.padOsc.frequency.setTargetAtTime(midiToHz(padNote), now, 0.15);
+
+      // Light pulse for movement in the backing track.
+      music.bassGain.gain.cancelScheduledValues(now);
+      music.bassGain.gain.setValueAtTime(0.03, now);
+      music.bassGain.gain.linearRampToValueAtTime(0.055, now + 0.06);
+      music.bassGain.gain.linearRampToValueAtTime(0.03, now + 0.28);
+
+      music.step += 1;
+    }, 320);
+
+    setMusicMuted(music.muted);
+  }
 
   function circleRectIntersects(cx, cy, cr, rect) {
     const nx = Math.max(rect.x, Math.min(cx, rect.x + rect.w));
@@ -330,6 +433,33 @@
     return a;
   }
 
+  function applyFrontPivotTurn(deltaHeading) {
+    if (Math.abs(deltaHeading) < 0.000001) {
+      return true;
+    }
+
+    const pivotDist = 16;
+    const oldDirX = Math.cos(mower.heading);
+    const oldDirY = Math.sin(mower.heading);
+    const frontX = mower.x + oldDirX * pivotDist;
+    const frontY = mower.y + oldDirY * pivotDist;
+
+    const nextHeading = normalizeAngle(mower.heading + deltaHeading);
+    const newDirX = Math.cos(nextHeading);
+    const newDirY = Math.sin(nextHeading);
+    const nextX = frontX - newDirX * pivotDist;
+    const nextY = frontY - newDirY * pivotDist;
+
+    if (!collidesWithWorld(nextX, nextY, mower.radius)) {
+      mower.heading = nextHeading;
+      mower.x = nextX;
+      mower.y = nextY;
+      return true;
+    }
+
+    return false;
+  }
+
   function update(dt) {
     if (state.mode !== 'playing') {
       return;
@@ -357,7 +487,11 @@
     const steerScale = Math.max(-1, Math.min(1, diff / (Math.PI / 2)));
     const moveFactor = Math.min(1, Math.abs(mower.speed) / mower.maxForward);
     const turnStrength = 0.95 + moveFactor * 0.7;
-    mower.heading = normalizeAngle(mower.heading + steerScale * mower.turnRate * turnStrength * dt);
+    const headingDelta = steerScale * mower.turnRate * turnStrength * dt;
+    const turned = applyFrontPivotTurn(headingDelta);
+    if (!turned) {
+      mower.heading = normalizeAngle(mower.heading + headingDelta * 0.35);
+    }
     state.steerDisplay += (steerScale - state.steerDisplay) * 0.45;
 
     const vx = Math.cos(mower.heading) * mower.speed;
@@ -389,12 +523,18 @@
 
         const x = col * mowGrid.cell;
         const y = row * mowGrid.cell;
-        if (cell === 1) {
-          ctx.fillStyle = ((row + col) % 2 === 0) ? '#6aa65e' : '#72ad65';
+        if (cell === 1 && grassSprites.unmowedLoaded) {
+          ctx.drawImage(grassSprites.unmowed, 0, 0, 128, 128, x, y, mowGrid.cell, mowGrid.cell);
+        } else if (cell === 2 && grassSprites.mowedLoaded) {
+          ctx.drawImage(grassSprites.mowed, 0, 0, 128, 128, x, y, mowGrid.cell, mowGrid.cell);
         } else {
-          ctx.fillStyle = ((row + col) % 2 === 0) ? '#4f8c4a' : '#588f50';
+          if (cell === 1) {
+            ctx.fillStyle = ((row + col) % 2 === 0) ? '#6aa65e' : '#72ad65';
+          } else {
+            ctx.fillStyle = ((row + col) % 2 === 0) ? '#4f8c4a' : '#588f50';
+          }
+          ctx.fillRect(x, y, mowGrid.cell, mowGrid.cell);
         }
-        ctx.fillRect(x, y, mowGrid.cell, mowGrid.cell);
       }
     }
   }
@@ -540,6 +680,7 @@
     ctx.font = '16px "Trebuchet MS", sans-serif';
     ctx.fillText(`Coverage: ${state.coverage.toFixed(1)}%`, 28, 35);
     ctx.fillText(`Target: ${scene.targetCoverage}%`, 28, 58);
+    ctx.fillText(`Music: ${state.musicMuted ? 'Off' : 'On'} (M)`, 170, 35);
     drawSteeringHud();
 
     if (state.mode === 'start') {
@@ -648,6 +789,7 @@
   canvas.addEventListener('contextmenu', (event) => event.preventDefault());
 
   canvas.addEventListener('mousedown', (event) => {
+    ensureMusicStarted();
     const pt = canvasPointFromEvent(event);
     input.mouse = pt;
     input.prevMouse = { ...pt };
@@ -680,6 +822,7 @@
   });
 
   window.addEventListener('keydown', (event) => {
+    ensureMusicStarted();
     if (event.key.toLowerCase() === 'f') {
       if (document.fullscreenElement) {
         document.exitFullscreen();
@@ -690,6 +833,10 @@
 
     if (event.key.toLowerCase() === 'r') {
       resetGame(false);
+    }
+
+    if (event.key.toLowerCase() === 'm') {
+      setMusicMuted(!music.muted);
     }
 
     if (event.key === ' ' && state.mode === 'start') {
@@ -730,6 +877,7 @@
         left_mouse_held: input.leftDown,
         right_mouse_held: input.rightDown,
         steering_axis: Number(state.steerDisplay.toFixed(3)),
+        music_muted: state.musicMuted,
         mouse_target: {
           x: Number(input.mouse.x.toFixed(1)),
           y: Number(input.mouse.y.toFixed(1)),
