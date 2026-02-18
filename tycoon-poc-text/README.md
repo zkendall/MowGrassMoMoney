@@ -40,3 +40,15 @@ Open `http://127.0.0.1:4174`.
 
 - `window.render_game_to_text()` returns concise JSON state.
 - `window.advanceTime(ms)` advances deterministic simulation ticks.
+
+## Snapshot Numbering Guideline
+
+- Run verification with:
+  - `./scripts/verify-tycoon.sh http://127.0.0.1:4174`
+- Each run creates indexed artifacts directly under `output/` with a concise change label:
+  - `NN-<change-label>-web-game/`
+  - matching probe file: `NN-<change-label>-probe.json`
+- Label is computed from changes since the last successful verify run.
+- Label is intentionally short (`gameplay`, `ui`, `docs`, `verify`, or a compact file-based fallback).
+- If no tracked changes are detected, label becomes `no-change`.
+- Use matching index pairs when reviewing a run (`NN-...-web-game` + `NN-...-probe.json`).

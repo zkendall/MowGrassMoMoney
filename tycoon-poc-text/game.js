@@ -19,6 +19,7 @@
   const PATTERNS = ['circle', 'stripe', 'none'];
   const PASSING_SCORE = 70;
   const ACTION_OPTIONS = ['solicit', 'follow_up', 'mow', 'shop_hardware'];
+  const SPINNER_FRAMES = ['|', '/', '-', '\\'];
   const STARTING_CASH = 220;
 
   const state = {
@@ -43,6 +44,9 @@
     offerCursor: 0,
     actionCursor: 0,
     shopCursor: 0,
+    processing: null,
+    processingFrame: 0,
+    processingToken: 0,
     ticks: 0,
     note: '',
   };
@@ -164,8 +168,38 @@
     state.selectedOfferIds.clear();
     state.offerCursor = 0;
     state.actionCursor = 0;
+    state.processing = null;
+    state.processingFrame = 0;
+    state.processingToken += 1;
     state.note = 'Choose how to spend the day.';
     render();
+  }
+
+  function startProcessing(label, durationMs, onComplete) {
+    state.processingToken += 1;
+    const token = state.processingToken;
+    state.processing = { label, awaitingConfirm: false, onComplete };
+    state.processingFrame = 0;
+    state.mode = 'processing';
+    render();
+
+    const intervalId = window.setInterval(() => {
+      if (state.processingToken !== token) {
+        window.clearInterval(intervalId);
+        return;
+      }
+      state.processingFrame = (state.processingFrame + 1) % SPINNER_FRAMES.length;
+      render();
+    }, 120);
+
+    window.setTimeout(() => {
+      if (state.processingToken !== token) return;
+      window.clearInterval(intervalId);
+      if (!state.processing) return;
+      state.processing.awaitingConfirm = true;
+      state.note = 'Press Enter to continue.';
+      render();
+    }, durationMs);
   }
 
   function planningWarnings() {
@@ -179,6 +213,25 @@
     if (action === 'follow_up') return 'Follow Up Leads';
     if (action === 'shop_hardware') return 'Shop for New Hardware';
     return 'Mow Lawns';
+  }
+
+  function actionOpportunitySummary(action, qualifiedLeadCount, rawLeadCount) {
+    if (action === 'solicit') return '    - 0-3 new leads, $5-$15 materials';
+    if (action === 'follow_up') return `    - ${rawLeadCount} leads`;
+    if (action === 'mow') {
+      return `    - ${qualifiedLeadCount} leads, ${state.repeatCustomers.length} repeat`;
+    }
+    const offer = nextTierOffer();
+    if (!offer) return '    - No upgrade available';
+    const affordability = state.cash >= offer.upgradeCost ? 'affordable' : 'too expensive';
+    return `    - ${offer.label} $${offer.upgradeCost} (${affordability})`;
+  }
+
+  function actionDescriptionSummary(action) {
+    if (action === 'solicit') return '    - Spend day canvassing for new leads';
+    if (action === 'follow_up') return '    - Spend day qualifying raw leads';
+    if (action === 'mow') return '    - Mow qualified leads and repeat customers';
+    return '    - Spend day shopping for mower hardware';
   }
 
   function moveDayActionCursor(delta) {
@@ -236,7 +289,7 @@
     const leadsQualified = [];
     for (const lead of state.leads) {
       if (lead.lead_status !== 'raw') continue;
-      if (state.rng() < 0.6) {
+      if (state.rng() < 0.4) {
         lead.lead_status = 'qualified';
         leadsQualified.push(lead.name);
       }
@@ -270,15 +323,15 @@
     if (state.mode !== 'day_action') return;
     const action = ACTION_OPTIONS[state.actionCursor];
     if (action === 'solicit') {
-      performSolicitDay();
+      startProcessing('Soliciting neighborhood...', 1200, performSolicitDay);
       return;
     }
     if (action === 'follow_up') {
-      performFollowUpDay();
+      startProcessing('Following up on leads...', 1000, performFollowUpDay);
       return;
     }
     if (action === 'shop_hardware') {
-      beginHardwareShopDay();
+      startProcessing('Heading to hardware shop...', 900, beginHardwareShopDay);
       return;
     }
     beginMowDay();
@@ -360,6 +413,10 @@
 
   function resolveDay() {
     if (state.mode !== 'performance') return;
+    startProcessing('Processing mowing results...', 1100, resolveDayNow);
+  }
+
+  function resolveDayNow() {
 
     let revenue = 0;
     let fuel = 0;
@@ -431,7 +488,6 @@
   }
 
   function buyUpgrade() {
-    if (state.mode !== 'hardware_shop') return;
     const offer = nextTierOffer();
     let purchased = null;
     if (offer && state.cash >= offer.upgradeCost) {
@@ -469,7 +525,6 @@
   }
 
   function skipHardwareShop() {
-    if (state.mode !== 'hardware_shop') return;
     const churned = markRetention(new Set());
     state.pendingOffers = [];
     state.selectedOfferIds.clear();
@@ -531,21 +586,23 @@
 
   function nextDay() {
     if (state.mode !== 'report') return;
-    applySelectedOffers();
-    state.day += 1;
-    state.mode = 'day_action';
-    state.acceptedJobs = [];
-    state.selectedJobIds.clear();
-    state.planningCursor = 0;
-    state.scoreInput = 78;
-    state.patternResult = 'none';
-    state.report = null;
-    state.pendingOffers = [];
-    state.selectedOfferIds.clear();
-    state.offerCursor = 0;
-    state.actionCursor = 0;
-    state.note = `Starting day ${state.day}.`;
-    render();
+    startProcessing('Advancing to next day...', 700, () => {
+      applySelectedOffers();
+      state.day += 1;
+      state.mode = 'day_action';
+      state.acceptedJobs = [];
+      state.selectedJobIds.clear();
+      state.planningCursor = 0;
+      state.scoreInput = 78;
+      state.patternResult = 'none';
+      state.report = null;
+      state.pendingOffers = [];
+      state.selectedOfferIds.clear();
+      state.offerCursor = 0;
+      state.actionCursor = 0;
+      state.note = `Starting day ${state.day}.`;
+      render();
+    });
   }
 
   function renderConsole() {
@@ -565,41 +622,9 @@
       for (let i = 0; i < ACTION_OPTIONS.length; i += 1) {
         const cursor = i === state.actionCursor ? '>' : ' ';
         const action = ACTION_OPTIONS[i];
-        let info = '';
-        if (action === 'solicit') info = 'Spend day canvassing; pay random materials cost; chance to add leads.';
-        if (action === 'follow_up') info = 'Spend day qualifying raw leads into mowable leads.';
-        if (action === 'mow') info = 'Mow qualified leads and/or active repeat customers.';
-        if (action === 'shop_hardware') info = 'Spend day shopping for a mower upgrade.';
-        lines.push(`${cursor} ${actionLabel(action)} - ${info}`);
-      }
-    }
-
-    if (state.mode === 'hardware_shop') {
-      const offer = nextTierOffer();
-      if (event.key === 'ArrowUp') {
-        event.preventDefault();
-        state.shopCursor = Math.max(0, state.shopCursor - 1);
-        render();
-        return;
-      }
-      if (event.key === 'ArrowDown') {
-        event.preventDefault();
-        state.shopCursor = Math.min(1, state.shopCursor + 1);
-        render();
-        return;
-      }
-      if (event.key === 'Enter') {
-        event.preventDefault();
-        if (!offer) {
-          skipHardwareShop();
-          return;
-        }
-        if (state.shopCursor === 0) {
-          buyUpgrade();
-        } else {
-          skipHardwareShop();
-        }
-        return;
+        lines.push(`${cursor} ${actionLabel(action)}`);
+        lines.push(actionDescriptionSummary(action));
+        lines.push(actionOpportunitySummary(action, qualifiedLeadCount, rawLeadCount));
       }
     }
 
@@ -620,6 +645,13 @@
           lines.push(`${cursor} ${options[i]}`);
         }
       }
+    }
+
+    if (state.mode === 'processing' && state.processing) {
+      const frame = SPINNER_FRAMES[state.processingFrame];
+      lines.push(`PHASE: PROCESSING ${frame}`);
+      lines.push(state.processing.label);
+      lines.push(state.processing.awaitingConfirm ? 'Press Enter to continue.' : 'Please wait...');
     }
 
     if (state.mode === 'planning') {
@@ -873,6 +905,17 @@
       return;
     }
 
+    if (state.mode === 'processing') {
+      if (event.key === 'Enter' && state.processing?.awaitingConfirm) {
+        event.preventDefault();
+        const callback = state.processing.onComplete;
+        state.processingToken += 1;
+        state.processing = null;
+        if (typeof callback === 'function') callback();
+      }
+      return;
+    }
+
     if (state.mode === 'day_action') {
       if (event.key === 'ArrowUp') {
         event.preventDefault();
@@ -887,6 +930,35 @@
       if (event.key === 'Enter') {
         event.preventDefault();
         confirmDayAction();
+        return;
+      }
+    }
+
+    if (state.mode === 'hardware_shop') {
+      const offer = nextTierOffer();
+      if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        state.shopCursor = Math.max(0, state.shopCursor - 1);
+        render();
+        return;
+      }
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        state.shopCursor = Math.min(1, state.shopCursor + 1);
+        render();
+        return;
+      }
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        if (!offer) {
+          startProcessing('Wrapping up hardware visit...', 650, skipHardwareShop);
+          return;
+        }
+        if (state.shopCursor === 0) {
+          startProcessing('Completing hardware purchase...', 850, buyUpgrade);
+        } else {
+          startProcessing('Leaving hardware shop...', 650, skipHardwareShop);
+        }
         return;
       }
     }

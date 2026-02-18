@@ -163,3 +163,56 @@ TODO / Next suggestions:
   - `tycoon-poc-text/index.html`
   - `tycoon-poc-text/README.md`
   - `tycoon-poc-text/POC-Tycoon.md`
+- Added timed processing transitions with spinner animation for time-consuming actions in `tycoon-poc-text/game.js`.
+  - New transient mode: `processing` with animated spinner (`| / - \\`) and action label.
+  - Added delays for:
+    - `Solicit`
+    - `Follow Up Leads`
+    - transition to `Shop for New Hardware`
+    - mowing result resolution (`performance` -> `report`)
+    - hardware shop buy/skip confirmation
+    - day advance (`report` -> next day)
+- Input behavior updated:
+  - While in `processing` mode, gameplay input is ignored (except reset/fullscreen handlers before mode checks).
+- Verification:
+  - `node --check tycoon-poc-text/game.js` passed.
+  - `./tycoon-poc-text/scripts/verify-tycoon.sh http://127.0.0.1:4174` passed and produced updated artifacts under `tycoon-poc-text/output/verify-tycoon`.
+- Verification workflow update:
+  - `tycoon-poc-text/scripts/verify-tycoon.sh` now archives screenshots/state with global incremental numbering in creation order across runs.
+  - Archive path: `tycoon-poc-text/output/verify-tycoon/snapshots`.
+  - Added ordering guideline to `tycoon-poc-text/README.md`.
+- Adjusted verification output indexing to match requested format.
+  - `verify-tycoon.sh` now writes runs directly under `tycoon-poc-text/output` as:
+    - `NN-web-game/`
+    - `NN-probe.json`
+  - Example: `01-web-game` + `01-probe.json`, then `02-*`, etc.
+- Removed new nested numbering approach from the workflow; updated README guideline accordingly.
+- Verification naming guideline update:
+  - `verify-tycoon.sh` now names run folders/files as `NN-<change-label>-*`.
+  - Label summarizes changes since the last successful verify baseline.
+  - Falls back to `no-change` when no tracked changes are detected.
+- Verification label tightening:
+  - `verify-tycoon.sh` now generates shorter run labels meant to succinctly describe deltas since the previous verify run.
+  - Preferred labels are compact categories (`gameplay`, `ui`, `docs`, `verify`) with file-based fallback and `no-change` when unchanged.
+- Verification run:
+  - Executed `./tycoon-poc-text/scripts/verify-tycoon.sh http://127.0.0.1:4174`.
+  - Created indexed artifacts: `tycoon-poc-text/output/09-gameplay-ui-web-game` and `tycoon-poc-text/output/09-gameplay-ui-probe.json`.
+  - Confirmed index-paired output structure remains intact.
+- Day action UI readability update in `tycoon-poc-text/game.js`:
+  - Added indented sub-description line under each day action row to summarize the current opportunity.
+  - Sub-descriptions are dynamic (examples: raw leads available for follow-up, qualified+repeat jobs available for mowing, next hardware upgrade affordability).
+- Verification:
+  - Ran `./tycoon-poc-text/scripts/verify-tycoon.sh http://127.0.0.1:4174`.
+  - New artifacts: `tycoon-poc-text/output/10-gameplay-web-game` and `tycoon-poc-text/output/10-gameplay-probe.json`.
+- Added repo-local agent instruction file: `/Users/zkendall/projects/MowGrassMoMoney/AGENTS.md`.
+  - Includes explicit requirement to read and append `/Users/zkendall/projects/MowGrassMoMoney/progress.md` after meaningful implementation, verification, or documentation changes.
+- UI text spacing tweak in `/Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/game.js`:
+  - Increased indentation for day-action subheader lines (both description + opportunity) to improve visual hierarchy.
+- Verification:
+  - Ran `./tycoon-poc-text/scripts/verify-tycoon.sh http://127.0.0.1:4174`.
+  - Artifacts: `/Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/output/13-gameplay-web-game` and `/Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/output/13-gameplay-probe.json`.
+- Balance adjustment in `/Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/game.js`:
+  - Reduced lead qualification chance during `Follow Up Leads` from `0.6` to `0.4`.
+- Verification:
+  - Ran `./tycoon-poc-text/scripts/verify-tycoon.sh http://127.0.0.1:4174`.
+  - Artifacts: `/Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/output/14-gameplay-web-game` and `/Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/output/14-gameplay-probe.json`.
