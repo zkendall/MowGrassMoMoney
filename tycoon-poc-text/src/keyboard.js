@@ -112,7 +112,7 @@ export function attachKeyboard({ state, render, initialize, startProcessing, tra
         render();
         return;
       }
-      if (event.key === ' ' || event.key === 'Spacebar') {
+      if (event.key === ' ' || event.key === 'Spacebar' || event.key === 'Space' || event.code === 'Space') {
         event.preventDefault();
         actions.toggleJobSelection(state.planningCursor);
         return;
@@ -170,7 +170,7 @@ export function attachKeyboard({ state, render, initialize, startProcessing, tra
         actions.moveOfferCursor(1);
         return;
       }
-      if (event.key === ' ' || event.key === 'Spacebar') {
+      if (event.key === ' ' || event.key === 'Spacebar' || event.key === 'Space' || event.code === 'Space') {
         event.preventDefault();
         actions.toggleOfferSelection(state.offerCursor);
         return;

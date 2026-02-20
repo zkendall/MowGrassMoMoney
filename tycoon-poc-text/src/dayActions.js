@@ -10,8 +10,13 @@ import {
   randInt,
   randomLead,
 } from './jobs.js';
+import { logDebug } from './logging.js';
 
 export function createDayActions({ state, render, transitionTo, startProcessing }) {
+  function logRoll(message) {
+    logDebug(`[day ${state.day}] ${message}`);
+  }
+
   function actionLabel(action) {
     if (action === 'solicit') return 'Solicit';
     if (action === 'follow_up') return 'Follow Up Leads';
@@ -56,8 +61,12 @@ export function createDayActions({ state, render, transitionTo, startProcessing 
   function performSolicitDay() {
     const materialsCost = randInt(state, 5, 15);
     const leadsGenerated = [];
-    if (state.rng() < 0.68) {
+    const solicitRoll = state.rng();
+    const solicitSuccess = solicitRoll < 0.45;
+    logRoll(`solicit chance roll=${solicitRoll.toFixed(5)} threshold=0.45 result=${solicitSuccess ? 'success' : 'fail'}`);
+    if (solicitSuccess) {
       const leadCount = randInt(state, 1, 3);
+      logRoll(`solicit lead-count result=${leadCount}`);
       for (let i = 0; i < leadCount; i += 1) {
         const lead = randomLead(state);
         state.leads.push(lead);
@@ -71,10 +80,21 @@ export function createDayActions({ state, render, transitionTo, startProcessing 
   }
 
   function performFollowUpDay() {
+    const rawLeads = state.leads.filter((lead) => lead.lead_status === 'raw');
+    logRoll(`follow-up start: raw=${rawLeads.length}, qualified=${state.leads.length - rawLeads.length}`);
+    if (!rawLeads.length) {
+      for (const lead of state.leads) {
+        logRoll(`follow-up skip ${lead.name}: status=${lead.lead_status}`);
+      }
+    }
+
     const leadsQualified = [];
     for (const lead of state.leads) {
       if (lead.lead_status !== 'raw') continue;
-      if (state.rng() < 0.4) {
+      const qualifyRoll = state.rng();
+      const qualifies = qualifyRoll < 0.4;
+      logRoll(`follow-up ${lead.name} roll=${qualifyRoll.toFixed(5)} threshold=0.40 result=${qualifies ? 'qualified' : 'not-qualified'}`);
+      if (qualifies) {
         lead.lead_status = 'qualified';
         leadsQualified.push(lead.name);
       }
@@ -382,6 +402,7 @@ export function createDayActions({ state, render, transitionTo, startProcessing 
       transitionTo,
       label: 'Advancing to next day...',
       durationMs: 700,
+      requireConfirm: false,
       onComplete: () => {
         applySelectedOffers();
         state.day += 1;

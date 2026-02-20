@@ -1,4 +1,5 @@
 import { COMPLEXITY_PENALTY, PATTERNS, TIER_DATA } from './constants.js';
+import { logDebug } from './logging.js';
 
 export function createRng(seed) {
   let s = seed >>> 0;
@@ -11,11 +12,18 @@ export function createRng(seed) {
 }
 
 function pick(state, arr) {
-  return arr[Math.floor(state.rng() * arr.length)];
+  const roll = state.rng();
+  const idx = Math.floor(roll * arr.length);
+  const value = arr[idx];
+  logDebug(`pick [${arr.join(',')}]: roll=${roll.toFixed(5)} idx=${idx} => ${value}`);
+  return value;
 }
 
 export function randInt(state, min, max) {
-  return Math.floor(state.rng() * (max - min + 1)) + min;
+  const roll = state.rng();
+  const value = Math.floor(roll * (max - min + 1)) + min;
+  logDebug(`randInt ${min}-${max}: roll=${roll.toFixed(5)} => ${value}`);
+  return value;
 }
 
 function customerLabel(id) {

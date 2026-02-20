@@ -1,6 +1,14 @@
 import { SPINNER_FRAMES } from './constants.js';
 
-export function startProcessing({ state, render, transitionTo, label, durationMs, onComplete }) {
+export function startProcessing({
+  state,
+  render,
+  transitionTo,
+  label,
+  durationMs,
+  onComplete,
+  requireConfirm = true,
+}) {
   state.processingToken += 1;
   const token = state.processingToken;
   state.processing = { label, awaitingConfirm: false, onComplete };
@@ -21,6 +29,13 @@ export function startProcessing({ state, render, transitionTo, label, durationMs
     if (state.processingToken !== token) return;
     window.clearInterval(intervalId);
     if (!state.processing) return;
+    if (!requireConfirm) {
+      const callback = state.processing.onComplete;
+      state.processingToken += 1;
+      state.processing = null;
+      if (typeof callback === 'function') callback();
+      return;
+    }
     state.processing.awaitingConfirm = true;
     state.note = 'Press Enter to continue.';
     render();

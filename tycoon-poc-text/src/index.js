@@ -2,6 +2,7 @@ import { ACTION_OPTIONS } from './constants.js';
 import { createDayActions } from './dayActions.js';
 import { createRng, currentTier } from './jobs.js';
 import { attachKeyboard } from './keyboard.js';
+import { logDebug, logInfo } from './logging.js';
 import { startProcessing } from './processing.js';
 import { renderActiveCustomersView } from './render/activeCustomersView.js';
 import { renderConsoleView } from './render/consoleView.js';
@@ -27,6 +28,7 @@ function initialize() {
   resetCoreState(state);
   forceMode(state, 'day_action');
   state.note = 'Choose how to spend the day.';
+  logInfo(`app initialized (seed=${state.seed}, log_level active)`);
   render();
 }
 
@@ -88,6 +90,7 @@ function toTextState() {
       name: c.name,
       selected: state.selectedOfferIds.has(c.id),
     })),
+    debug_log_tail: Array.isArray(window.__tycoonLogs) ? window.__tycoonLogs.slice(-25) : [],
   };
 
   return JSON.stringify(payload);
@@ -102,6 +105,11 @@ window.render_game_to_text = toTextState;
 window.advanceTime = (ms) => {
   step(ms);
   render();
+};
+window.tycoonLogTest = () => {
+  logInfo('manual log test (INFO)');
+  logDebug('manual log test (DEBUG)');
+  return Array.isArray(window.__tycoonLogs) ? window.__tycoonLogs.slice(-5) : [];
 };
 
 attachKeyboard({

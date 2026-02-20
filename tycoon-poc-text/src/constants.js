@@ -15,3 +15,4 @@ export const PASSING_SCORE = 70;
 export const ACTION_OPTIONS = ['solicit', 'follow_up', 'mow', 'shop_hardware'];
 export const SPINNER_FRAMES = ['|', '/', '-', '\\'];
 export const STARTING_CASH = 220;
+export const LOG_LEVEL = 'DEBUG';

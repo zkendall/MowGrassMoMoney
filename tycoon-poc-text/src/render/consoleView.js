@@ -41,9 +41,9 @@ function actionDescriptionSummary(action) {
 
 function actionOpportunitySummary(state, action, qualifiedLeadCount, rawLeadCount) {
   if (action === 'solicit') return '    - 0-3 new leads, $5-$15 materials';
-  if (action === 'follow_up') return `    - ${rawLeadCount} leads`;
+  if (action === 'follow_up') return `    - ${rawLeadCount} raw leads`;
   if (action === 'mow') {
-    return `    - ${qualifiedLeadCount} leads, ${state.repeatCustomers.length} repeat`;
+    return `    - ${qualifiedLeadCount} qualified leads, ${state.repeatCustomers.length} repeat`;
   }
   const offer = nextTierOffer(state);
   if (!offer) return '    - No upgrade available';
