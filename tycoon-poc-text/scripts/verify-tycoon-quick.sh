@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# NOTE: Keep this verification flow legible.
+# Prefer clean, explicit steps with documented intent over dense one-liners.
+
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 URL="${1:-http://127.0.0.1:4174}"
 HEADED=0
@@ -13,8 +16,6 @@ OUT_ROOT="$ROOT_DIR/output"
 HISTORY_PATH="$OUT_ROOT/.verify-history.json"
 STATE_TMP="$(mktemp)"
 
-WEB_GAME_CLIENT="${WEB_GAME_CLIENT:-$HOME/.codex/skills/develop-web-game/scripts/web_game_playwright_client.js}"
-VERIFY_ACTIONS_FILE="$ROOT_DIR/scripts/verify-tycoon-actions.json"
 VERIFY_HEADED_RUNNER="$ROOT_DIR/scripts/verify-tycoon-headed-runner.js"
 VERIFY_LABELER="$ROOT_DIR/scripts/compute-verify-label.js"
 VERIFY_SUMMARIZER="$ROOT_DIR/scripts/summarize-verify-states.js"
@@ -62,17 +63,11 @@ echo "[verify-tycoon-quick] Output root: $OUT_ROOT"
 # 1) Syntax check
 node --check "$ROOT_DIR/game.js"
 
-# 2) Run action loop and capture screenshots/state
+# 2) Run deterministic walkthrough and capture screenshots/state
 if (( HEADED )); then
-  # Headed path intentionally uses real-time keypress spacing so flows are watchable.
-  (cd "$ROOT_DIR" && node "$VERIFY_HEADED_RUNNER" "$VERIFY_URL" "$WEB_GAME_DIR")
+  (cd "$ROOT_DIR" && node "$VERIFY_HEADED_RUNNER" "$VERIFY_URL" "$WEB_GAME_DIR" false)
 else
-  node "$WEB_GAME_CLIENT" \
-    --url "$VERIFY_URL" \
-    --headless true \
-    --iterations 1 \
-    --screenshot-dir "$WEB_GAME_DIR" \
-    --actions-file "$VERIFY_ACTIONS_FILE"
+  (cd "$ROOT_DIR" && node "$VERIFY_HEADED_RUNNER" "$VERIFY_URL" "$WEB_GAME_DIR" true)
 fi
 
 # 3) Summarize captured state snapshots

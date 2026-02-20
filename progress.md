@@ -410,3 +410,34 @@ TODO / Next suggestions:
   - Ran `./tycoon-poc-text/scripts/verify-tycoon-quick.sh http://127.0.0.1:4174 --headed` with `test_all_actions` start override.
   - Probe confirms sequence reached hardware shop path (`last_report_activity: "shop_hardware"`).
   - Artifacts: `/Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/output/44-verify-web-game` and `/Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/output/44-verify-probe.json`.
+- Verification input tuning for mow profitability:
+  - Updated `/Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/scripts/verify-tycoon-actions.json` and `/Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/scripts/verify-tycoon-headed-runner.js` so mow planning now selects multiple jobs before confirming (three selections via `Space`).
+- Verification:
+  - Ran `./tycoon-poc-text/scripts/verify-tycoon-quick.sh http://127.0.0.1:4174`.
+  - Artifacts: `/Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/output/45-verify-tycoon-actions-web-game` and `/Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/output/45-verify-tycoon-actions-probe.json`.
+  - Captured state shows increased post-mow cash (`cash: 823`), which is above riding mower upgrade cost (`790`).
+- Verification:
+  - Ran `./tycoon-poc-text/scripts/verify-tycoon-quick.sh http://127.0.0.1:4174 --headed` with multi-job mow sequence.
+  - Probe confirms flow ended in hardware shop report (`last_report_activity: "shop_hardware"`).
+  - Artifacts: `/Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/output/46-no-change-web-game` and `/Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/output/46-no-change-probe.json`.
+- Verify flow correction for explicit full-action walkthrough starting from `solicit` cursor:
+  - Updated `/Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/src/state.js` test preset so `test_all_actions` starts with `actionCursor: 0` (`Solicit`).
+  - Replaced brittle timing-only verify choreography with deterministic state-aware runner logic in `/Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/scripts/verify-tycoon-headed-runner.js`.
+    - Runner now explicitly drives: `Solicit` -> `Follow Up Leads` -> `Mow Lawns` (selects multiple jobs) -> `Shop for New Hardware` (buy path).
+  - Updated `/Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/scripts/verify-tycoon-quick.sh` to use the same walkthrough runner for both headless and headed modes.
+- Verification:
+  - Ran `./tycoon-poc-text/scripts/verify-tycoon-quick.sh http://127.0.0.1:4174`.
+  - Artifacts: `/Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/output/49-verify-web-game` and `/Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/output/49-verify-probe.json`.
+  - Probe confirms walk-through reached hardware report (`last_report_activity: "shop_hardware"`) while ending in report mode.
+- Documentation enhancement in `/Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/scripts/verify-tycoon-actions.json`:
+  - Added `desc` field to every step to explain the intended action/phase transition while preserving the existing input sequence.
+- Verification:
+  - Parsed `verify-tycoon-actions.json` with Node JSON parser (`ok`).
+- Added maintainability notes to verification test files for readability expectations:
+  - `/Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/scripts/verify-tycoon-quick.sh`
+  - `/Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/scripts/verify-tycoon-headed-runner.js`
+  - `/Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/scripts/verify-tycoon-actions.json`
+  - Guidance states test steps should remain clean, explicit, and documented (`desc`) for legibility.
+- Verification:
+  - Parsed `verify-tycoon-actions.json` (`json ok`).
+  - Ran `node --check /Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/scripts/verify-tycoon-headed-runner.js`.

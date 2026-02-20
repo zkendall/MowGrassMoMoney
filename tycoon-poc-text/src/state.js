@@ -238,7 +238,7 @@ function createTestAllActionsInitialState() {
     ],
     selectedOfferIds: new Set([205]),
     offerCursor: 1,
-    actionCursor: 2,
+    actionCursor: 0,
     shopCursor: 1,
     processing: null,
     processingFrame: 0,
