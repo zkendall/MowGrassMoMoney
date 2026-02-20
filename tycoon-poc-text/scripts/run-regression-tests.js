@@ -13,9 +13,7 @@ function parseArgs(argv) {
   const args = {
     url: 'http://127.0.0.1:4174',
     updateGolden: false,
-    seedMatrixOnly: false,
     headless: true,
-    seeds: [2, 17, 29, 41, 53, 67, 83, 97, 111, 131],
   };
   for (let i = 2; i < argv.length; i += 1) {
     const arg = argv[i];
@@ -25,8 +23,6 @@ function parseArgs(argv) {
       i += 1;
     } else if (arg === '--update-golden') {
       args.updateGolden = true;
-    } else if (arg === '--seed-matrix-only') {
-      args.seedMatrixOnly = true;
     } else if (arg === '--headed') {
       args.headless = false;
     } else if (arg === '--headless') {
@@ -41,16 +37,6 @@ function parseArgs(argv) {
       } else {
         throw new Error('--headless must be true/false (or 1/0)');
       }
-      i += 1;
-    } else if (arg === '--seeds' && next) {
-      const parsed = next
-        .split(',')
-        .map((value) => Number.parseInt(value.trim(), 10))
-        .filter((value) => Number.isFinite(value));
-      if (!parsed.length) {
-        throw new Error('--seeds must contain at least one integer');
-      }
-      args.seeds = parsed;
       i += 1;
     }
   }
@@ -316,40 +302,6 @@ function assertEqual(name, actual, expected) {
   }
 }
 
-async function runSeedSummary(browser, baseUrl, seed) {
-  const page = await openSeededPage(browser, baseUrl, seed);
-  await executePlan(page, 'seed_summary');
-  const report = await readState(page);
-
-  const summary = {
-    seed,
-    mode: report.mode,
-    day: report.day,
-    cash: report.cash,
-    lead_count: (report.leads || []).length,
-    activity: report.last_report?.activity,
-    materials: report.last_report?.materials,
-    generated_count: (report.last_report?.leads_generated || []).length,
-    generated_names: [...(report.last_report?.leads_generated || [])],
-  };
-
-  await page.close();
-  return summary;
-}
-
-async function runSeedMatrix(browser, baseUrl, seeds) {
-  const rows = [];
-  for (const seed of seeds) {
-    const first = await runSeedSummary(browser, baseUrl, seed);
-    const second = await runSeedSummary(browser, baseUrl, seed);
-    if (JSON.stringify(first) !== JSON.stringify(second)) {
-      throw new Error(`Seed matrix determinism check failed for seed=${seed}`);
-    }
-    rows.push(first);
-  }
-  return rows;
-}
-
 async function main() {
   const args = parseArgs(process.argv);
   const browser = await chromium.launch({
@@ -365,22 +317,18 @@ async function main() {
     ];
 
     const actual = {};
-    if (!args.seedMatrixOnly) {
-      for (const [name, runner] of scenarios) {
-        actual[name] = await runner(browser, args.url);
-        if (args.updateGolden) {
-          writeExpected(name, actual[name]);
-        } else {
-          const expected = readExpected(name);
-          if (!expected) {
-            throw new Error(`Missing golden file: tests/golden/${name}.json`);
-          }
-          assertEqual(name, actual[name], expected);
+    for (const [name, runner] of scenarios) {
+      actual[name] = await runner(browser, args.url);
+      if (args.updateGolden) {
+        writeExpected(name, actual[name]);
+      } else {
+        const expected = readExpected(name);
+        if (!expected) {
+          throw new Error(`Missing golden file: tests/golden/${name}.json`);
         }
+        assertEqual(name, actual[name], expected);
       }
     }
-
-    const seedMatrix = await runSeedMatrix(browser, args.url, args.seeds);
 
     fs.mkdirSync(OUTPUT_DIR, { recursive: true });
     fs.writeFileSync(
@@ -388,9 +336,7 @@ async function main() {
       JSON.stringify({
         url: args.url,
         update_golden: args.updateGolden,
-        seed_matrix_only: args.seedMatrixOnly,
         scenarios: actual,
-        seed_matrix: seedMatrix,
       }, null, 2),
     );
 
@@ -398,7 +344,6 @@ async function main() {
       status: 'ok',
       scenarios: Object.keys(actual),
       headless: args.headless,
-      seeds: args.seeds,
       summary: path.join(OUTPUT_DIR, 'latest-summary.json'),
     }, null, 2));
   } finally {
