@@ -125,43 +125,53 @@ export function renderConsoleView(state, consoleEl) {
   if (state.mode === 'report' && state.report) {
     lines.push('PHASE: END OF DAY REPORT (Enter for next day)');
     lines.push(`Activity: ${state.report.activity || 'mow'}`);
-    lines.push(`Revenue: $${state.report.revenue}`);
-    lines.push(`Costs: Fuel $${state.report.fuel} + Maintenance $${state.report.maintenance} + Materials $${state.report.materials || 0}`);
-    lines.push(`Net: $${state.report.net}`);
-    lines.push(`Cash: $${state.report.endingCash}`);
-    lines.push(`Customers retained: ${state.report.retainedCount}`);
-    lines.push(`Regular offers: ${state.report.offers.length ? state.report.offers.join(', ') : 'none'}`);
-    lines.push(`Churned: ${state.report.churned.length ? state.report.churned.join(', ') : 'none'}`);
-    if (state.report.hardware_purchase !== undefined) {
-      lines.push(`Hardware purchased: ${state.report.hardware_purchase || 'none'}`);
-      lines.push(`Hardware cost: $${state.report.hardware_cost || 0}`);
-    }
-    if (state.report.leads_generated) {
-      lines.push(`Leads generated: ${state.report.leads_generated.length ? state.report.leads_generated.join(', ') : 'none'}`);
-    }
-    if (state.report.leads_qualified) {
-      lines.push(`Leads qualified: ${state.report.leads_qualified.length ? state.report.leads_qualified.join(', ') : 'none'}`);
-    }
-    lines.push('');
-    if (state.report.breakdown.length) {
-      lines.push('JOB BREAKDOWN');
-      for (const b of state.report.breakdown) {
-        lines.push(`${b.name} (${b.source}) | score ${b.finalScore} | pref ${b.preference} vs ${b.delivered} | payout $${b.payout}`);
-      }
+    if (state.report.activity === 'follow_up') {
+      const newLeads = state.report.leads_qualified || [];
+      lines.push('');
+      lines.push(`You got ${newLeads.length} new lead${newLeads.length === 1 ? '' : 's'}!`);
+      lines.push('');
+      lines.push(`Names: ${newLeads.length ? newLeads.join(', ') : 'none'}`);
+    } else if (state.report.activity === 'solicit') {
+      const newLeads = state.report.leads_generated || [];
+      lines.push('');
+      lines.push(`You got ${newLeads.length} new lead${newLeads.length === 1 ? '' : 's'}!`);
+      lines.push('');
+      lines.push(`Names: ${newLeads.length ? newLeads.join(', ') : 'none'}`);
     } else {
-      lines.push('JOB BREAKDOWN: none (non-mowing day).');
-    }
-    lines.push('');
-    if (state.pendingOffers.length) {
-      lines.push('REGULAR CUSTOMER OFFERS (Up/Down move, Space toggle, Enter confirm)');
-      for (let i = 0; i < state.pendingOffers.length; i += 1) {
-        const pending = state.pendingOffers[i];
-        const cursor = i === state.offerCursor ? '>' : ' ';
-        const marker = state.selectedOfferIds.has(pending.id) ? '[x]' : '[ ]';
-        lines.push(`${cursor}${marker} ${pending.name} | pref ${pending.pattern_preference} | base $${pending.base_payout}`);
+      lines.push(`Revenue: $${state.report.revenue}`);
+      lines.push(`Costs: Fuel $${state.report.fuel} + Maintenance $${state.report.maintenance} + Materials $${state.report.materials || 0}`);
+      lines.push(`Net: $${state.report.net}`);
+      lines.push(`Cash: $${state.report.endingCash}`);
+      lines.push(`Customers retained: ${state.report.retainedCount}`);
+      lines.push(`Regular offers: ${state.report.offers.length ? state.report.offers.join(', ') : 'none'}`);
+      lines.push(`Churned: ${state.report.churned.length ? state.report.churned.join(', ') : 'none'}`);
+      if (state.report.hardware_purchase !== undefined) {
+        lines.push(`Hardware purchased: ${state.report.hardware_purchase || 'none'}`);
+        lines.push(`Hardware cost: $${state.report.hardware_cost || 0}`);
       }
-    } else {
-      lines.push('REGULAR CUSTOMER OFFERS: none this day.');
+      lines.push('');
+      if (state.report.breakdown.length) {
+        lines.push('JOB BREAKDOWN');
+        for (const b of state.report.breakdown) {
+          lines.push(`${b.name} (${b.source}) | score ${b.finalScore} | pref ${b.preference} vs ${b.delivered} | payout $${b.payout}`);
+        }
+      } else {
+        lines.push('JOB BREAKDOWN: none (non-mowing day).');
+      }
+    }
+    if (state.report.activity !== 'solicit' && state.report.activity !== 'follow_up') {
+      lines.push('');
+      if (state.pendingOffers.length) {
+        lines.push('REGULAR CUSTOMER OFFERS (Up/Down move, Space toggle, Enter confirm)');
+        for (let i = 0; i < state.pendingOffers.length; i += 1) {
+          const pending = state.pendingOffers[i];
+          const cursor = i === state.offerCursor ? '>' : ' ';
+          const marker = state.selectedOfferIds.has(pending.id) ? '[x]' : '[ ]';
+          lines.push(`${cursor}${marker} ${pending.name} | pref ${pending.pattern_preference} | base $${pending.base_payout}`);
+        }
+      } else {
+        lines.push('REGULAR CUSTOMER OFFERS: none this day.');
+      }
     }
   }
 

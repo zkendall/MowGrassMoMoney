@@ -47,6 +47,10 @@ open "http://127.0.0.1:4174/?seed=2"
 - `window.render_game_to_text()` returns concise JSON state.
 - `window.advanceTime(ms)` advances deterministic simulation ticks.
 - `window.setTycoonSeed(seed)` resets the run with a new deterministic seed.
+- `window.__tycoonTestSetStartStateOverride(mode, applyNow)` sets a test-only start-state override:
+  - `mode='test_all_actions'` loads an explicit mid-game snapshot with populated repeat customers, leads (raw + qualified), planning jobs, accepted jobs, pending offers, and prior report data.
+  - `mode='default'` (or `null`) clears the override and restores normal start behavior.
+  - Optional URL shortcut: `?start_state=test_all_actions`.
 
 ## Code Structure
 
@@ -62,7 +66,7 @@ open "http://127.0.0.1:4174/?seed=2"
 ## Snapshot Numbering Guideline
 
 - Run verification with:
-  - `./scripts/verify-tycoon.sh http://127.0.0.1:4174`
+  - `./scripts/verify-tycoon-quick.sh http://127.0.0.1:4174`
 - Each run creates indexed artifacts directly under `output/` with a concise change label:
   - `NN-<change-label>-web-game/`
   - matching probe file: `NN-<change-label>-probe.json`

@@ -7,7 +7,12 @@ import { startProcessing } from './processing.js';
 import { renderActiveCustomersView } from './render/activeCustomersView.js';
 import { renderConsoleView } from './render/consoleView.js';
 import { drawStatusPanel } from './render/statusPanel.js';
-import { createInitialState, resetCoreState } from './state.js';
+import {
+  createInitialState,
+  resetCoreState,
+  START_STATE_TEST_ALL_ACTIONS,
+  START_STATE_DEFAULT,
+} from './state.js';
 import { forceMode, transitionTo } from './stateMachine.js';
 
 const canvas = document.getElementById('game');
@@ -17,6 +22,8 @@ const activeCustomersEl = document.getElementById('active-customers');
 
 const state = createInitialState();
 const QUERY_SEED_PARAM = 'seed';
+const QUERY_START_STATE_PARAM = 'start_state';
+let testStartStateOverride = START_STATE_DEFAULT;
 
 function parseSeedOverride() {
   const params = new URLSearchParams(window.location.search);
@@ -27,6 +34,15 @@ function parseSeedOverride() {
   return parsed >>> 0;
 }
 
+function parseStartStateOverride() {
+  const params = new URLSearchParams(window.location.search);
+  const raw = params.get(QUERY_START_STATE_PARAM);
+  if (!raw) return START_STATE_DEFAULT;
+  const normalized = String(raw).trim().toLowerCase();
+  if (normalized === START_STATE_TEST_ALL_ACTIONS) return START_STATE_TEST_ALL_ACTIONS;
+  return START_STATE_DEFAULT;
+}
+
 function render() {
   drawStatusPanel(state, canvas, ctx);
   renderConsoleView(state, consoleEl);
@@ -35,13 +51,21 @@ function render() {
 
 function initialize() {
   const querySeed = parseSeedOverride();
+  const queryStartState = parseStartStateOverride();
   if (querySeed !== null) {
     state.seed = querySeed;
   }
   state.rng = createRng(state.seed);
-  resetCoreState(state);
+  const activeStartStateMode = testStartStateOverride !== START_STATE_DEFAULT
+    ? testStartStateOverride
+    : queryStartState;
+  resetCoreState(state, activeStartStateMode);
   forceMode(state, 'day_action');
-  state.note = 'Choose how to spend the day.';
+  if (activeStartStateMode === START_STATE_TEST_ALL_ACTIONS) {
+    state.note = 'Test start override active: mid-game all-actions snapshot loaded.';
+  } else {
+    state.note = 'Choose how to spend the day.';
+  }
   logInfo(`app initialized (seed=${state.seed}, log_level active)`);
   render();
 }
@@ -146,6 +170,17 @@ window.__tycoonTestSetLeads = ({ count = 1, status = 'qualified' } = {}) => {
   }
   render();
   return state.leads.length;
+};
+window.__tycoonTestSetStartStateOverride = (mode = null, applyNow = true) => {
+  if (mode === null || mode === '' || mode === START_STATE_DEFAULT) {
+    testStartStateOverride = START_STATE_DEFAULT;
+  } else if (mode === START_STATE_TEST_ALL_ACTIONS) {
+    testStartStateOverride = START_STATE_TEST_ALL_ACTIONS;
+  } else {
+    return false;
+  }
+  if (applyNow) initialize();
+  return true;
 };
 window.setTycoonSeed = (nextSeed) => {
   const parsed = Number.parseInt(nextSeed, 10);
