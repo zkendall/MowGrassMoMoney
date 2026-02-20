@@ -13,6 +13,12 @@ python3 -m http.server 4174
 
 Open `http://127.0.0.1:4174`.
 
+To run with a deterministic seed:
+
+```bash
+open "http://127.0.0.1:4174/?seed=2"
+```
+
 ## Controls
 
 - `Up` / `Down`: move cursor (day action, planner jobs, or report offers)
@@ -40,6 +46,7 @@ Open `http://127.0.0.1:4174`.
 
 - `window.render_game_to_text()` returns concise JSON state.
 - `window.advanceTime(ms)` advances deterministic simulation ticks.
+- `window.setTycoonSeed(seed)` resets the run with a new deterministic seed.
 
 ## Code Structure
 
@@ -63,3 +70,15 @@ Open `http://127.0.0.1:4174`.
 - Label is intentionally short (`gameplay`, `ui`, `docs`, `verify`, or a compact file-based fallback).
 - If no tracked changes are detected, label becomes `no-change`.
 - Use matching index pairs when reviewing a run (`NN-...-web-game` + `NN-...-probe.json`).
+
+## Regression Tests
+
+- Install test dependencies:
+  - `npm --prefix tycoon-poc-text install`
+  - `npx --prefix tycoon-poc-text playwright install chromium`
+- Run the golden scenario suite (3 scenarios + seed matrix check):
+  - `npm --prefix tycoon-poc-text run test:regression -- --url http://127.0.0.1:4174`
+- Update golden baselines after intentional behavior changes:
+  - `node tycoon-poc-text/scripts/run-regression-tests.js --url http://127.0.0.1:4174 --update-golden`
+- Run deterministic seed matrix only:
+  - `./tycoon-poc-text/scripts/run-seed-matrix.sh http://127.0.0.1:4174`

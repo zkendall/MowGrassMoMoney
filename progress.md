@@ -301,3 +301,47 @@ TODO / Next suggestions:
 - Verification:
   - Ran `./tycoon-poc-text/scripts/verify-tycoon.sh http://127.0.0.1:4174`.
   - Artifacts: `/Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/output/26-gameplay-web-game` and `/Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/output/26-gameplay-probe.json`.
+- Input handling update in `/Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/src/keyboard.js`:
+  - While `processing` mode is active, `Enter` now immediately completes the current processing step even before `awaitingConfirm`, allowing fast skip through progress screens.
+- Console copy update in `/Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/src/render/consoleView.js`:
+  - Processing phase now shows `Please wait... (Enter to skip)` before confirm-ready state.
+- Verification:
+  - Ran `./tycoon-poc-text/scripts/verify-tycoon.sh http://127.0.0.1:4174`.
+  - Artifacts: `/Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/output/27-docs-web-game` and `/Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/output/27-docs-probe.json`.
+- Day-action cursor persistence update in `/Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/src/dayActions.js`:
+  - Removed end-of-day reset of `state.actionCursor` during `nextDay()` so returning to `day_action` keeps the previously selected action highlighted.
+  - New-game/reset flow still initializes cursor to first action via core state reset.
+- Verification:
+  - Ran `node --check /Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/src/dayActions.js`.
+  - Ran `./tycoon-poc-text/scripts/verify-tycoon.sh http://127.0.0.1:4174`.
+  - Artifacts: `/Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/output/28-run-regression-tests-web-game` and `/Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/output/28-run-regression-tests-probe.json`.
+- Regression framework upgrade for `/Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text`:
+  - Added deterministic seed override support in `/Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/src/index.js` via URL query (`?seed=<int>`).
+  - Added `seed` to `render_game_to_text()` payload.
+  - Added test utility hooks in `/Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/src/index.js`:
+    - `window.setTycoonSeed(seed)` to reset with explicit seed.
+    - `window.__tycoonTestSetLeads({count,status})` for deterministic lead fixture setup in regression scenarios.
+- Added deterministic regression runner:
+  - New script `/Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/scripts/run-regression-tests.js`.
+  - Implements 3 golden scenarios (`solicit_report`, `follow_up_report`, `mow_offer_accept`) with exact JSON baseline comparison.
+  - Implements seed-matrix determinism check (runs each seed twice, requires identical summaries).
+  - Writes summary artifact to `/Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/output/regression-tests/latest-summary.json`.
+- Added deterministic seed-runner wrapper:
+  - New script `/Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/scripts/run-seed-matrix.sh`.
+- Added committed golden baselines:
+  - `/Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/tests/golden/solicit_report.json`
+  - `/Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/tests/golden/follow_up_report.json`
+  - `/Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/tests/golden/mow_offer_accept.json`
+- CI wiring:
+  - Added `/Users/zkendall/projects/MowGrassMoMoney/.github/workflows/tycoon-regression.yml` to run syntax check + regression suite on push/PR for `tycoon-poc-text/**`.
+- Tooling + docs:
+  - Added `/Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/package.json` and lockfile with Playwright dev dependency and regression scripts.
+  - Updated `/Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/README.md` with deterministic seed usage + regression commands.
+- Verification:
+  - Ran `node --check /Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/scripts/run-regression-tests.js`.
+  - Ran golden generation: `node /Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/scripts/run-regression-tests.js --url http://127.0.0.1:4174 --update-golden`.
+  - Ran pass validation: `node /Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/scripts/run-regression-tests.js --url http://127.0.0.1:4174`.
+- Output readability update in `/Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/src/index.js`:
+  - Changed `render_game_to_text()` serialization to `JSON.stringify(payload, null, 2)` so Playwright-captured `state-*.json` files are pretty-printed.
+- Verification:
+  - Ran `node --check /Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/src/index.js`.

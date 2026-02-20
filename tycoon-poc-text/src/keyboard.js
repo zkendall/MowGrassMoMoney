@@ -18,7 +18,7 @@ export function attachKeyboard({ state, render, initialize, startProcessing, tra
     }
 
     if (state.mode === 'processing') {
-      if (event.key === 'Enter' && state.processing?.awaitingConfirm) {
+      if (event.key === 'Enter' && state.processing) {
         event.preventDefault();
         const callback = state.processing.onComplete;
         state.processingToken += 1;

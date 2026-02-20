@@ -1,0 +1,56 @@
+name: Tycoon Regression
+
+on:
+  push:
+    paths:
+      - 'tycoon-poc-text/**'
+      - '.github/workflows/tycoon-regression.yml'
+  pull_request:
+    paths:
+      - 'tycoon-poc-text/**'
+      - '.github/workflows/tycoon-regression.yml'
+
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Tycoon Test Dependencies
+        run: npm --prefix tycoon-poc-text install
+
+      - name: Install Playwright Browser
+        run: npx --prefix tycoon-poc-text playwright install --with-deps chromium
+
+      - name: Start Tycoon Static Server
+        run: |
+          python3 -m http.server 4174 --directory tycoon-poc-text >/tmp/tycoon-http.log 2>&1 &
+          echo $! > /tmp/tycoon-http.pid
+          sleep 1
+
+      - name: Run Syntax Check
+        run: npm --prefix tycoon-poc-text run verify:syntax
+
+      - name: Run Regression Suite
+        run: npm --prefix tycoon-poc-text run test:regression -- --url http://127.0.0.1:4174
+
+      - name: Upload Regression Summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tycoon-regression-summary
+          path: tycoon-poc-text/output/regression-tests/latest-summary.json
+
+      - name: Stop Tycoon Static Server
+        if: always()
+        run: |
+          if [ -f /tmp/tycoon-http.pid ]; then
+            kill "$(cat /tmp/tycoon-http.pid)" || true
+          fi

@@ -416,7 +416,6 @@ export function createDayActions({ state, render, transitionTo, startProcessing 
         state.pendingOffers = [];
         state.selectedOfferIds.clear();
         state.offerCursor = 0;
-        state.actionCursor = 0;
         state.note = `Starting day ${state.day}.`;
         render();
       },

@@ -1,0 +1,14 @@
+{
+  "name": "tycoon-poc-text",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Regression tooling for the tycoon text POC",
+  "scripts": {
+    "test:regression": "node ./scripts/run-regression-tests.js",
+    "test:seed-matrix": "node ./scripts/run-regression-tests.js --seed-matrix-only",
+    "verify:syntax": "node --check game.js"
+  },
+  "devDependencies": {
+    "playwright": "^1.58.2"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "seed": 2,
+  "mode": "report",
+  "day": 1,
+  "cash": 220,
+  "leads": [
+    {
+      "id": 9000,
+      "lead_status": "raw"
+    },
+    {
+      "id": 9001,
+      "lead_status": "qualified"
+    },
+    {
+      "id": 9002,
+      "lead_status": "raw"
+    }
+  ],
+  "last_report": {
+    "activity": "follow_up",
+    "leads_qualified": [
+      "T-02"
+    ],
+    "endingCash": 220
+  }
+}

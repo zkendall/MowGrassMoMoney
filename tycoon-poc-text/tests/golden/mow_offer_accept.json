@@ -1,0 +1,20 @@
+{
+  "seed": 2,
+  "mode": "day_action",
+  "day": 2,
+  "cash": 282,
+  "mower_tier": "manual_push",
+  "repeat_customers": [
+    {
+      "id": 9000,
+      "days_since_service": 0,
+      "pattern_preference": "none"
+    }
+  ],
+  "leads": [
+    {
+      "id": 9001,
+      "lead_status": "qualified"
+    }
+  ]
+}

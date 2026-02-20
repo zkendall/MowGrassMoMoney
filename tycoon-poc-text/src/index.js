@@ -16,6 +16,16 @@ const consoleEl = document.getElementById('console');
 const activeCustomersEl = document.getElementById('active-customers');
 
 const state = createInitialState();
+const QUERY_SEED_PARAM = 'seed';
+
+function parseSeedOverride() {
+  const params = new URLSearchParams(window.location.search);
+  const raw = params.get(QUERY_SEED_PARAM);
+  if (raw === null) return null;
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed)) return null;
+  return parsed >>> 0;
+}
 
 function render() {
   drawStatusPanel(state, canvas, ctx);
@@ -24,6 +34,10 @@ function render() {
 }
 
 function initialize() {
+  const querySeed = parseSeedOverride();
+  if (querySeed !== null) {
+    state.seed = querySeed;
+  }
   state.rng = createRng(state.seed);
   resetCoreState(state);
   forceMode(state, 'day_action');
@@ -44,6 +58,7 @@ function toTextState() {
     coordinate_system: 'UI state only; no world coordinates. origin not applicable.',
     mode: state.mode,
     day: state.day,
+    seed: state.seed,
     cash: state.cash,
     mower_tier: currentTier(state).id,
     repeat_customers: state.repeatCustomers.map((c) => ({
@@ -93,7 +108,7 @@ function toTextState() {
     debug_log_tail: Array.isArray(window.__tycoonLogs) ? window.__tycoonLogs.slice(-25) : [],
   };
 
-  return JSON.stringify(payload);
+  return JSON.stringify(payload, null, 2);
 }
 
 function step(ms) {
@@ -110,6 +125,34 @@ window.tycoonLogTest = () => {
   logInfo('manual log test (INFO)');
   logDebug('manual log test (DEBUG)');
   return Array.isArray(window.__tycoonLogs) ? window.__tycoonLogs.slice(-5) : [];
+};
+window.__tycoonTestSetLeads = ({ count = 1, status = 'qualified' } = {}) => {
+  const normalizedCount = Math.max(0, Number.parseInt(count, 10) || 0);
+  const normalizedStatus = status === 'raw' ? 'raw' : 'qualified';
+  state.leads = [];
+  for (let i = 0; i < normalizedCount; i += 1) {
+    state.leads.push({
+      id: 9000 + i,
+      name: `T-${String(i + 1).padStart(2, '0')}`,
+      isRepeat: false,
+      lawn_size: 'small',
+      complexity: 'low',
+      pattern_preference: 'none',
+      base_payout: 65,
+      days_since_service: 0,
+      distance_cost: 3,
+      lead_status: normalizedStatus,
+    });
+  }
+  render();
+  return state.leads.length;
+};
+window.setTycoonSeed = (nextSeed) => {
+  const parsed = Number.parseInt(nextSeed, 10);
+  if (!Number.isFinite(parsed)) return false;
+  state.seed = parsed >>> 0;
+  initialize();
+  return true;
 };
 
 attachKeyboard({

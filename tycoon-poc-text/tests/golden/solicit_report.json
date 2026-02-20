@@ -1,0 +1,33 @@
+{
+  "seed": 2,
+  "mode": "report",
+  "day": 1,
+  "cash": 210,
+  "leads": [
+    {
+      "id": 1,
+      "lead_status": "raw",
+      "pattern_preference": "none"
+    },
+    {
+      "id": 2,
+      "lead_status": "raw",
+      "pattern_preference": "stripe"
+    },
+    {
+      "id": 3,
+      "lead_status": "raw",
+      "pattern_preference": "circle"
+    }
+  ],
+  "last_report": {
+    "activity": "solicit",
+    "materials": 10,
+    "leads_generated": [
+      "C-0001",
+      "C-0002",
+      "C-0003"
+    ],
+    "endingCash": 210
+  }
+}

@@ -97,7 +97,7 @@ export function renderConsoleView(state, consoleEl) {
     const frame = SPINNER_FRAMES[state.processingFrame];
     lines.push(`PHASE: PROCESSING ${frame}`);
     lines.push(state.processing.label);
-    lines.push(state.processing.awaitingConfirm ? 'Press Enter to continue.' : 'Please wait...');
+    lines.push(state.processing.awaitingConfirm ? 'Press Enter to continue.' : 'Please wait... (Enter to skip)');
   }
 
   if (state.mode === 'planning') {
