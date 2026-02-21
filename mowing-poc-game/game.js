@@ -10,7 +10,6 @@
   const mowerSprite = {
     image: new Image(),
     loaded: false,
-    // 1024x1024 sheet arranged as 4 columns x 3 rows.
     frame: { x: 256, y: 0, w: 256, h: 256 },
     drawW: 54,
     drawH: 54,
@@ -40,7 +39,6 @@
     lawn: { x: 145, y: 130, w: 665, h: 455 },
     house: { x: 95, y: 20, w: 770, h: 95 },
     driveway: { x: 760, y: 115, w: 90, h: 500 },
-    fenceInset: 40,
     targetCoverage: 95,
   };
 
@@ -58,19 +56,13 @@
     heading: 0,
     radius: 18,
     deckRadius: 26,
-    speed: 0,
-    maxForward: 126,
-    maxReverse: 72,
-    accel: 270,
-    drag: 3.8,
-    turnRate: 3.4,
+    playbackSpeed: 120,
   };
 
   const input = {
-    leftDown: false,
-    rightDown: false,
-    mouse: { x: mower.x, y: mower.y },
-    prevMouse: { x: mower.x, y: mower.y },
+    pointerDown: false,
+    pointer: { x: mower.x, y: mower.y },
+    fastForward: false,
   };
 
   const mowGrid = {
@@ -87,8 +79,42 @@
     elapsed: 0,
     coverage: 0,
     lastWinAt: null,
-    steerDisplay: 0,
     musicMuted: true,
+    cash: 0,
+    totalCrashes: 0,
+    lastPenalty: 0,
+    transientMessage: '',
+    transientTimer: 0,
+  };
+
+  const pathState = {
+    draftPoints: [],
+    draftLength: 0,
+    playbackPoints: [],
+    playbackLengths: [],
+    totalLength: 0,
+    progress: 0,
+    brushRadius: mower.deckRadius,
+    minPointSpacing: 5,
+    minPathLength: 20,
+    fastForwardMultiplier: 3,
+  };
+
+  const animationState = {
+    flipActive: false,
+    flipTimer: 0,
+    flipDuration: 0.4,
+    flipBaseHeading: 0,
+  };
+
+  const penaltyPopups = [];
+  let overlappingObstacleIds = [];
+
+  const reviewLayout = {
+    width: 170,
+    height: 50,
+    gap: 24,
+    y: WORLD.height - 95,
   };
 
   const music = {
@@ -166,7 +192,6 @@
       music.bassOsc.frequency.setTargetAtTime(midiToHz(bassNote), now, 0.08);
       music.padOsc.frequency.setTargetAtTime(midiToHz(padNote), now, 0.15);
 
-      // Light pulse for movement in the backing track.
       music.bassGain.gain.cancelScheduledValues(now);
       music.bassGain.gain.setValueAtTime(0.03, now);
       music.bassGain.gain.linearRampToValueAtTime(0.055, now + 0.06);
@@ -184,154 +209,6 @@
     const dx = cx - nx;
     const dy = cy - ny;
     return dx * dx + dy * dy <= cr * cr;
-  }
-
-  function collidesWithWorld(x, y, r) {
-    const left = scene.lawn.x + r;
-    const right = scene.lawn.x + scene.lawn.w - r;
-    const top = scene.lawn.y + r;
-    const bottom = scene.lawn.y + scene.lawn.h - r;
-
-    if (x < left || x > right || y < top || y > bottom) {
-      return true;
-    }
-
-    for (const obstacle of obstacles) {
-      if (obstacle.kind === 'circle') {
-        const dx = x - obstacle.x;
-        const dy = y - obstacle.y;
-        const minD = r + obstacle.r;
-        if (dx * dx + dy * dy <= minD * minD) {
-          return true;
-        }
-      } else if (circleRectIntersects(x, y, r, obstacle)) {
-        return true;
-      }
-    }
-
-    return false;
-  }
-
-  function collisionNormalAt(x, y, r) {
-    let nx = 0;
-    let ny = 0;
-
-    const left = scene.lawn.x + r;
-    const right = scene.lawn.x + scene.lawn.w - r;
-    const top = scene.lawn.y + r;
-    const bottom = scene.lawn.y + scene.lawn.h - r;
-
-    if (x < left) nx += 1;
-    if (x > right) nx -= 1;
-    if (y < top) ny += 1;
-    if (y > bottom) ny -= 1;
-
-    for (const obstacle of obstacles) {
-      if (obstacle.kind === 'circle') {
-        const dx = x - obstacle.x;
-        const dy = y - obstacle.y;
-        const minD = r + obstacle.r;
-        const d2 = dx * dx + dy * dy;
-        if (d2 <= minD * minD) {
-          const d = Math.sqrt(Math.max(0.0001, d2));
-          nx += dx / d;
-          ny += dy / d;
-        }
-      } else if (circleRectIntersects(x, y, r, obstacle)) {
-        const nearestX = Math.max(obstacle.x, Math.min(x, obstacle.x + obstacle.w));
-        const nearestY = Math.max(obstacle.y, Math.min(y, obstacle.y + obstacle.h));
-        let dx = x - nearestX;
-        let dy = y - nearestY;
-
-        if (Math.abs(dx) < 0.0001 && Math.abs(dy) < 0.0001) {
-          const toLeft = Math.abs(x - obstacle.x);
-          const toRight = Math.abs(obstacle.x + obstacle.w - x);
-          const toTop = Math.abs(y - obstacle.y);
-          const toBottom = Math.abs(obstacle.y + obstacle.h - y);
-          const minEdge = Math.min(toLeft, toRight, toTop, toBottom);
-          if (minEdge === toLeft) dx = -1;
-          else if (minEdge === toRight) dx = 1;
-          else if (minEdge === toTop) dy = -1;
-          else dy = 1;
-        }
-
-        const d = Math.hypot(dx, dy) || 1;
-        nx += dx / d;
-        ny += dy / d;
-      }
-    }
-
-    const len = Math.hypot(nx, ny);
-    if (len < 0.0001) {
-      return { x: 0, y: 0 };
-    }
-    return { x: nx / len, y: ny / len };
-  }
-
-  function moveWithSlide(dx, dy, r) {
-    const startX = mower.x;
-    const startY = mower.y;
-    const targetX = startX + dx;
-    const targetY = startY + dy;
-
-    if (!collidesWithWorld(targetX, targetY, r)) {
-      mower.x = targetX;
-      mower.y = targetY;
-      return true;
-    }
-
-    // Move as far as possible toward target (binary search to contact point).
-    let lo = 0;
-    let hi = 1;
-    for (let i = 0; i < 10; i += 1) {
-      const mid = (lo + hi) * 0.5;
-      const mx = startX + dx * mid;
-      const my = startY + dy * mid;
-      if (collidesWithWorld(mx, my, r)) hi = mid;
-      else lo = mid;
-    }
-
-    let px = startX + dx * lo;
-    let py = startY + dy * lo;
-    mower.x = px;
-    mower.y = py;
-
-    const remain = 1 - lo;
-    if (remain <= 0.001) return false;
-
-    const normal = collisionNormalAt(px, py, r);
-    const remX = dx * remain;
-    const remY = dy * remain;
-    const dot = remX * normal.x + remY * normal.y;
-    let slideX = remX;
-    let slideY = remY;
-    if (dot < 0) {
-      slideX = remX - normal.x * dot;
-      slideY = remY - normal.y * dot;
-    }
-
-    const slideTargetX = px + slideX;
-    const slideTargetY = py + slideY;
-    if (!collidesWithWorld(slideTargetX, slideTargetY, r)) {
-      mower.x = slideTargetX;
-      mower.y = slideTargetY;
-      return true;
-    }
-
-    // Fallback: keep whichever single-axis movement is non-colliding.
-    const axisX = px + slideX;
-    if (!collidesWithWorld(axisX, py, r)) {
-      mower.x = axisX;
-      return true;
-    }
-
-    const axisY = py + slideY;
-    if (!collidesWithWorld(px, axisY, r)) {
-      mower.y = axisY;
-      return true;
-    }
-
-    return false;
   }
 
   function isPointMowable(x, y) {
@@ -390,10 +267,8 @@
   }
 
   function mowUnderDeck() {
-    const dx = Math.cos(mower.heading) * 8;
-    const dy = Math.sin(mower.heading) * 8;
-    const deckX = mower.x + dx;
-    const deckY = mower.y + dy;
+    const deckX = mower.x;
+    const deckY = mower.y;
 
     const minCol = Math.max(0, Math.floor((deckX - mower.deckRadius) / mowGrid.cell));
     const maxCol = Math.min(mowGrid.cols - 1, Math.ceil((deckX + mower.deckRadius) / mowGrid.cell));
@@ -426,6 +301,16 @@
     }
   }
 
+  function dist(a, b) {
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    return Math.hypot(dx, dy);
+  }
+
+  function clamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+  }
+
   function normalizeAngle(rad) {
     let a = rad;
     while (a > Math.PI) a -= Math.PI * 2;
@@ -433,83 +318,430 @@
     return a;
   }
 
-  function applyFrontPivotTurn(deltaHeading) {
-    if (Math.abs(deltaHeading) < 0.000001) {
-      return true;
-    }
-
-    const pivotDist = 16;
-    const oldDirX = Math.cos(mower.heading);
-    const oldDirY = Math.sin(mower.heading);
-    const frontX = mower.x + oldDirX * pivotDist;
-    const frontY = mower.y + oldDirY * pivotDist;
-
-    const nextHeading = normalizeAngle(mower.heading + deltaHeading);
-    const newDirX = Math.cos(nextHeading);
-    const newDirY = Math.sin(nextHeading);
-    const nextX = frontX - newDirX * pivotDist;
-    const nextY = frontY - newDirY * pivotDist;
-
-    if (!collidesWithWorld(nextX, nextY, mower.radius)) {
-      mower.heading = nextHeading;
-      mower.x = nextX;
-      mower.y = nextY;
-      return true;
-    }
-
-    return false;
+  function clampPointToPlaybackBounds(point) {
+    return {
+      x: clamp(point.x, scene.lawn.x + mower.radius, scene.lawn.x + scene.lawn.w - mower.radius),
+      y: clamp(point.y, scene.lawn.y + mower.radius, scene.lawn.y + scene.lawn.h - mower.radius),
+    };
   }
 
-  function update(dt) {
-    if (state.mode !== 'playing') {
+  function dedupeClosePoints(points, minSpacing = 1) {
+    if (points.length < 2) return points.slice();
+    const out = [points[0]];
+    for (let i = 1; i < points.length; i += 1) {
+      if (dist(out[out.length - 1], points[i]) >= minSpacing) {
+        out.push(points[i]);
+      }
+    }
+    return out;
+  }
+
+  function resamplePolyline(points, spacing) {
+    if (points.length < 2 || spacing <= 0) return points.slice();
+
+    const out = [points[0]];
+    let segmentStart = { ...points[0] };
+    let carry = 0;
+
+    for (let i = 1; i < points.length; i += 1) {
+      const segmentEnd = points[i];
+      const dx = segmentEnd.x - segmentStart.x;
+      const dy = segmentEnd.y - segmentStart.y;
+      const length = Math.hypot(dx, dy);
+      if (length < 0.0001) {
+        segmentStart = { ...segmentEnd };
+        continue;
+      }
+
+      const ux = dx / length;
+      const uy = dy / length;
+      let traveled = spacing - carry;
+
+      while (traveled <= length) {
+        out.push({
+          x: segmentStart.x + ux * traveled,
+          y: segmentStart.y + uy * traveled,
+        });
+        traveled += spacing;
+      }
+
+      carry = length - (traveled - spacing);
+      segmentStart = { ...segmentEnd };
+    }
+
+    const last = points[points.length - 1];
+    if (dist(out[out.length - 1], last) > 0.1) {
+      out.push({ ...last });
+    }
+
+    return out;
+  }
+
+  function catmullRomPoint(p0, p1, p2, p3, t) {
+    const t2 = t * t;
+    const t3 = t2 * t;
+    return {
+      x: 0.5 * ((2 * p1.x)
+        + (-p0.x + p2.x) * t
+        + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2
+        + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3),
+      y: 0.5 * ((2 * p1.y)
+        + (-p0.y + p2.y) * t
+        + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2
+        + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3),
+    };
+  }
+
+  function smoothPolyline(points, samplesPerSegment = 6) {
+    if (points.length < 3) return points.slice();
+
+    const out = [{ ...points[0] }];
+    for (let i = 0; i < points.length - 1; i += 1) {
+      const p0 = points[Math.max(0, i - 1)];
+      const p1 = points[i];
+      const p2 = points[Math.min(points.length - 1, i + 1)];
+      const p3 = points[Math.min(points.length - 1, i + 2)];
+
+      for (let j = 1; j <= samplesPerSegment; j += 1) {
+        const t = j / samplesPerSegment;
+        out.push(catmullRomPoint(p0, p1, p2, p3, t));
+      }
+    }
+
+    return out;
+  }
+
+  function measurePolyline(points) {
+    let total = 0;
+    for (let i = 1; i < points.length; i += 1) {
+      total += dist(points[i - 1], points[i]);
+    }
+    return total;
+  }
+
+  function buildCumulativeLengths(points) {
+    if (!points.length) return [];
+    const lengths = [0];
+    for (let i = 1; i < points.length; i += 1) {
+      lengths.push(lengths[i - 1] + dist(points[i - 1], points[i]));
+    }
+    return lengths;
+  }
+
+  function samplePointOnPath(points, lengths, distanceAlongPath) {
+    if (!points.length) return null;
+    if (points.length === 1 || lengths.length < 2) {
+      return { x: points[0].x, y: points[0].y, heading: mower.heading };
+    }
+
+    const total = lengths[lengths.length - 1];
+    const d = clamp(distanceAlongPath, 0, total);
+
+    let index = 1;
+    while (index < lengths.length && lengths[index] < d) {
+      index += 1;
+    }
+    const hi = Math.min(lengths.length - 1, index);
+    const lo = Math.max(0, hi - 1);
+
+    const a = points[lo];
+    const b = points[hi];
+    const span = Math.max(0.0001, lengths[hi] - lengths[lo]);
+    const t = clamp((d - lengths[lo]) / span, 0, 1);
+
+    const x = a.x + (b.x - a.x) * t;
+    const y = a.y + (b.y - a.y) * t;
+    const heading = normalizeAngle(Math.atan2(b.y - a.y, b.x - a.x));
+
+    return { x, y, heading };
+  }
+
+  function createPlaybackPath(rawPoints) {
+    if (rawPoints.length < 2) return [];
+
+    const coarse = dedupeClosePoints(rawPoints, 2);
+    const resampled = resamplePolyline(coarse, 6);
+    const smoothed = smoothPolyline(resampled, 4);
+    const finalResample = resamplePolyline(smoothed, 6);
+    const clamped = finalResample.map(clampPointToPlaybackBounds);
+
+    return dedupeClosePoints(clamped, 1);
+  }
+
+  function addDraftPoint(point) {
+    const next = { x: point.x, y: point.y };
+    const points = pathState.draftPoints;
+    if (points.length === 0) {
+      points.push(next);
+      pathState.draftLength = 0;
       return;
     }
 
-    state.elapsed += dt;
-
-    const throttle = (input.leftDown ? 1 : 0) + (input.rightDown ? -0.72 : 0);
-    const targetSpeed = throttle >= 0
-      ? throttle * mower.maxForward
-      : throttle * mower.maxReverse;
-
-    const speedDelta = targetSpeed - mower.speed;
-    mower.speed += speedDelta * Math.min(1, mower.accel * dt / Math.max(1, Math.abs(speedDelta)));
-    mower.speed *= 1 / (1 + mower.drag * dt * (throttle === 0 ? 1 : 0.2));
-
-    if (Math.abs(mower.speed) < 1.5 && throttle === 0) {
-      mower.speed = 0;
+    const prev = points[points.length - 1];
+    if (dist(prev, next) < pathState.minPointSpacing) {
+      return;
     }
 
-    // Steering is based on horizontal mouse movement, not absolute cursor position.
-    // Move mouse left => turn left. Move mouse right => turn right.
-    const toCursor = Math.atan2(input.mouse.y - mower.y, input.mouse.x - mower.x);
-    const diff = normalizeAngle(toCursor - mower.heading);
-    const steerScale = Math.max(-1, Math.min(1, diff / (Math.PI / 2)));
-    const moveFactor = Math.min(1, Math.abs(mower.speed) / mower.maxForward);
-    const turnStrength = 0.95 + moveFactor * 0.7;
-    const headingDelta = steerScale * mower.turnRate * turnStrength * dt;
-    const turned = applyFrontPivotTurn(headingDelta);
-    if (!turned) {
-      mower.heading = normalizeAngle(mower.heading + headingDelta * 0.35);
-    }
-    state.steerDisplay += (steerScale - state.steerDisplay) * 0.45;
+    points.push(next);
+    pathState.draftLength += dist(prev, next);
+  }
 
-    const vx = Math.cos(mower.heading) * mower.speed;
-    const vy = Math.sin(mower.heading) * mower.speed;
-    const moved = moveWithSlide(vx * dt, vy * dt, mower.radius);
-    if (!moved) {
-      mower.speed *= 0.75;
+  function clearDraftPath() {
+    pathState.draftPoints = [];
+    pathState.draftLength = 0;
+  }
+
+  function clearPlaybackPath() {
+    pathState.playbackPoints = [];
+    pathState.playbackLengths = [];
+    pathState.totalLength = 0;
+    pathState.progress = 0;
+    overlappingObstacleIds = [];
+    animationState.flipActive = false;
+    animationState.flipTimer = 0;
+  }
+
+  function markTransientMessage(text, duration = 1.2) {
+    state.transientMessage = text;
+    state.transientTimer = duration;
+  }
+
+  function getReviewButtons() {
+    const totalWidth = reviewLayout.width * 2 + reviewLayout.gap;
+    const startX = (WORLD.width - totalWidth) * 0.5;
+    const enabled = state.mode === 'review' && pathState.draftPoints.length >= 2;
+
+    return [
+      {
+        id: 'accept',
+        label: 'Accept',
+        x: startX,
+        y: reviewLayout.y,
+        w: reviewLayout.width,
+        h: reviewLayout.height,
+        enabled,
+      },
+      {
+        id: 'retry',
+        label: 'Retry',
+        x: startX + reviewLayout.width + reviewLayout.gap,
+        y: reviewLayout.y,
+        w: reviewLayout.width,
+        h: reviewLayout.height,
+        enabled,
+      },
+    ];
+  }
+
+  function pointInRect(point, rect) {
+    return (
+      point.x >= rect.x &&
+      point.x <= rect.x + rect.w &&
+      point.y >= rect.y &&
+      point.y <= rect.y + rect.h
+    );
+  }
+
+  function triggerCrashPenalty(obstacleIds) {
+    for (const obstacleId of obstacleIds) {
+      state.cash -= 1;
+      state.totalCrashes += 1;
+      state.lastPenalty = -1;
+      penaltyPopups.push({
+        text: '-$1',
+        x: mower.x + (Math.random() * 14 - 7),
+        y: mower.y - 10,
+        vy: -28,
+        ttl: 0.9,
+        maxTtl: 0.9,
+        obstacleId,
+      });
     }
+
+    animationState.flipActive = true;
+    animationState.flipTimer = 0;
+    animationState.flipBaseHeading = mower.heading;
+  }
+
+  function getObstacleOverlapIds(x, y, r) {
+    const ids = [];
+    for (const obstacle of obstacles) {
+      if (obstacle.kind === 'circle') {
+        const dx = x - obstacle.x;
+        const dy = y - obstacle.y;
+        const overlap = r + obstacle.r;
+        if (dx * dx + dy * dy <= overlap * overlap) {
+          ids.push(obstacle.id);
+        }
+      } else if (circleRectIntersects(x, y, r, obstacle)) {
+        ids.push(obstacle.id);
+      }
+    }
+    return ids;
+  }
+
+  function beginDrawing(point) {
+    clearPlaybackPath();
+    clearDraftPath();
+    addDraftPoint(point);
+    input.pointerDown = true;
+    input.pointer = { ...point };
+    state.mode = 'drawing';
+  }
+
+  function finalizeDrawing() {
+    input.pointerDown = false;
+
+    if (state.mode !== 'drawing') {
+      return;
+    }
+
+    if (pathState.draftPoints.length < 2 || pathState.draftLength < pathState.minPathLength) {
+      clearDraftPath();
+      markTransientMessage('Path too short. Draw a longer route.');
+      return;
+    }
+
+    state.mode = 'review';
+  }
+
+  function retryPath() {
+    clearPlaybackPath();
+    clearDraftPath();
+    state.mode = 'drawing';
+  }
+
+  function acceptPath() {
+    const playbackPoints = createPlaybackPath(pathState.draftPoints);
+    if (playbackPoints.length < 2) {
+      clearPlaybackPath();
+      markTransientMessage('Path invalid. Please retry.');
+      state.mode = 'drawing';
+      return;
+    }
+
+    pathState.playbackPoints = playbackPoints;
+    pathState.playbackLengths = buildCumulativeLengths(playbackPoints);
+    pathState.totalLength = pathState.playbackLengths[pathState.playbackLengths.length - 1] || 0;
+    pathState.progress = 0;
+
+    const startSample = samplePointOnPath(pathState.playbackPoints, pathState.playbackLengths, 0);
+    if (startSample) {
+      mower.x = startSample.x;
+      mower.y = startSample.y;
+      mower.heading = startSample.heading;
+    }
+
+    overlappingObstacleIds = getObstacleOverlapIds(mower.x, mower.y, 0);
+    animationState.flipActive = false;
+    animationState.flipTimer = 0;
+
+    state.mode = 'animating';
+  }
+
+  function handleReviewClick(point) {
+    if (state.mode !== 'review') return;
+    const buttons = getReviewButtons();
+    for (const button of buttons) {
+      if (!button.enabled) continue;
+      if (!pointInRect(point, button)) continue;
+
+      if (button.id === 'accept') {
+        acceptPath();
+      } else if (button.id === 'retry') {
+        retryPath();
+      }
+      return;
+    }
+  }
+
+  function updateTransients(dt) {
+    if (state.transientTimer > 0) {
+      state.transientTimer = Math.max(0, state.transientTimer - dt);
+      if (state.transientTimer === 0) {
+        state.transientMessage = '';
+      }
+    }
+
+    for (let i = penaltyPopups.length - 1; i >= 0; i -= 1) {
+      const popup = penaltyPopups[i];
+      popup.ttl -= dt;
+      popup.y += popup.vy * dt;
+      if (popup.ttl <= 0) {
+        penaltyPopups.splice(i, 1);
+      }
+    }
+  }
+
+  function updateAnimation(dt) {
+    if (state.mode !== 'animating') {
+      return;
+    }
+
+    if (!pathState.playbackPoints.length || pathState.totalLength <= 0) {
+      state.mode = 'drawing';
+      clearPlaybackPath();
+      return;
+    }
+
+    if (animationState.flipActive) {
+      animationState.flipTimer += dt;
+      if (animationState.flipTimer >= animationState.flipDuration) {
+        animationState.flipTimer = 0;
+        animationState.flipActive = false;
+      }
+      return;
+    }
+
+    const speed = input.fastForward
+      ? mower.playbackSpeed * pathState.fastForwardMultiplier
+      : mower.playbackSpeed;
+
+    pathState.progress = Math.min(
+      pathState.totalLength,
+      pathState.progress + speed * dt
+    );
+
+    const sample = samplePointOnPath(
+      pathState.playbackPoints,
+      pathState.playbackLengths,
+      pathState.progress
+    );
+
+    if (sample) {
+      mower.x = sample.x;
+      mower.y = sample.y;
+      mower.heading = sample.heading;
+    }
+
+    const nextOverlaps = getObstacleOverlapIds(mower.x, mower.y, 0);
+    const overlapSet = new Set(overlappingObstacleIds);
+    const newEntries = nextOverlaps.filter((id) => !overlapSet.has(id));
+
+    if (newEntries.length) {
+      triggerCrashPenalty(newEntries);
+    }
+
+    overlappingObstacleIds = nextOverlaps;
 
     mowUnderDeck();
 
-    if (state.coverage >= scene.targetCoverage) {
-      state.mode = 'won';
-      state.lastWinAt = state.elapsed;
-      input.leftDown = false;
-      input.rightDown = false;
-      mower.speed = 0;
+    if (pathState.progress >= pathState.totalLength) {
+      clearPlaybackPath();
+      clearDraftPath();
+      if (state.coverage >= scene.targetCoverage) {
+        state.mode = 'won';
+        state.lastWinAt = state.elapsed;
+      } else {
+        state.mode = 'drawing';
+      }
     }
+  }
+
+  function update(dt) {
+    state.elapsed += dt;
+    updateTransients(dt);
+    updateAnimation(dt);
   }
 
   function drawMowGrid() {
@@ -527,12 +759,11 @@
           ctx.drawImage(grassSprites.unmowed, 0, 0, 128, 128, x, y, mowGrid.cell, mowGrid.cell);
         } else if (cell === 2 && grassSprites.mowedLoaded) {
           ctx.drawImage(grassSprites.mowed, 0, 0, 128, 128, x, y, mowGrid.cell, mowGrid.cell);
+        } else if (cell === 1) {
+          ctx.fillStyle = ((row + col) % 2 === 0) ? '#6aa65e' : '#72ad65';
+          ctx.fillRect(x, y, mowGrid.cell, mowGrid.cell);
         } else {
-          if (cell === 1) {
-            ctx.fillStyle = ((row + col) % 2 === 0) ? '#6aa65e' : '#72ad65';
-          } else {
-            ctx.fillStyle = ((row + col) % 2 === 0) ? '#4f8c4a' : '#588f50';
-          }
+          ctx.fillStyle = ((row + col) % 2 === 0) ? '#4f8c4a' : '#588f50';
           ctx.fillRect(x, y, mowGrid.cell, mowGrid.cell);
         }
       }
@@ -619,11 +850,62 @@
     }
   }
 
+  function drawPathOverlay(points, options = {}) {
+    if (points.length < 2) {
+      return;
+    }
+
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    const showBrush = options.showBrush !== false;
+    if (showBrush) {
+      ctx.strokeStyle = options.fillColor || 'rgba(88, 181, 234, 0.34)';
+      ctx.lineWidth = pathState.brushRadius * 2;
+      ctx.beginPath();
+      ctx.moveTo(points[0].x, points[0].y);
+      for (let i = 1; i < points.length; i += 1) {
+        ctx.lineTo(points[i].x, points[i].y);
+      }
+      ctx.stroke();
+    }
+
+    ctx.strokeStyle = options.centerColor || '#f4fbff';
+    ctx.lineWidth = options.centerWidth || 2;
+    ctx.setLineDash(Array.isArray(options.centerDash) ? options.centerDash : []);
+    const smoothCenter = options.smoothCenter === true && points.length > 2;
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, points[0].y);
+    if (smoothCenter) {
+      for (let i = 1; i < points.length - 1; i += 1) {
+        const midX = (points[i].x + points[i + 1].x) * 0.5;
+        const midY = (points[i].y + points[i + 1].y) * 0.5;
+        ctx.quadraticCurveTo(points[i].x, points[i].y, midX, midY);
+      }
+      const tail = points[points.length - 1];
+      ctx.lineTo(tail.x, tail.y);
+    } else {
+      for (let i = 1; i < points.length; i += 1) {
+        ctx.lineTo(points[i].x, points[i].y);
+      }
+    }
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
   function drawMower() {
+    let headingToDraw = mower.heading;
+    if (animationState.flipActive) {
+      const t = clamp(animationState.flipTimer / animationState.flipDuration, 0, 1);
+      headingToDraw = animationState.flipBaseHeading + t * Math.PI * 2;
+    }
+
     if (mowerSprite.loaded) {
       ctx.save();
       ctx.translate(mower.x, mower.y);
-      ctx.rotate(mower.heading + mowerSprite.headingOffset);
+      ctx.rotate(headingToDraw + mowerSprite.headingOffset);
       ctx.drawImage(
         mowerSprite.image,
         mowerSprite.frame.x,
@@ -639,22 +921,12 @@
       return;
     }
 
-    const deckX = mower.x + Math.cos(mower.heading) * 8;
-    const deckY = mower.y + Math.sin(mower.heading) * 8;
-
-    ctx.fillStyle = '#2f3136';
-    ctx.beginPath();
-    ctx.arc(deckX, deckY, mower.deckRadius * 0.66, 0, Math.PI * 2);
-    ctx.fill();
-
     ctx.save();
     ctx.translate(mower.x, mower.y);
-    ctx.rotate(mower.heading);
+    ctx.rotate(headingToDraw);
 
     ctx.fillStyle = '#cf3f2f';
-    ctx.beginPath();
-    ctx.roundRect(-18, -15, 36, 30, 7);
-    ctx.fill();
+    ctx.fillRect(-18, -15, 36, 30);
 
     ctx.fillStyle = '#1f2125';
     ctx.fillRect(2, -12, 12, 24);
@@ -673,65 +945,46 @@
     ctx.restore();
   }
 
-  function drawUi() {
-    ctx.fillStyle = 'rgb(20 30 24 / 70%)';
-    ctx.fillRect(16, 12, 300, 62);
-    ctx.fillStyle = '#f4f0e0';
-    ctx.font = '16px "Trebuchet MS", sans-serif';
-    ctx.fillText(`Coverage: ${state.coverage.toFixed(1)}%`, 28, 35);
-    ctx.fillText(`Target: ${scene.targetCoverage}%`, 28, 58);
-    ctx.fillText(`Music: ${state.musicMuted ? 'Off' : 'On'} (M)`, 170, 35);
-    drawSteeringHud();
+  function drawRoundedRect(x, y, w, h, r) {
+    const radius = Math.min(r, w * 0.5, h * 0.5);
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.lineTo(x + w - radius, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
+    ctx.lineTo(x + w, y + h - radius);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
+    ctx.lineTo(x + radius, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
+    ctx.lineTo(x, y + radius);
+    ctx.quadraticCurveTo(x, y, x + radius, y);
+    ctx.closePath();
+  }
 
-    if (state.mode === 'start') {
-      overlayMessage('MoGrassMoMoney', 'Hold left mouse to mow. Cursor steers. Right mouse reverses.');
-      overlayMessage('Press click or space to start', 'Clear 95% of the lawn while avoiding obstacles.', 36);
-    } else if (state.mode === 'won') {
-      overlayMessage('Job complete!', `Final coverage ${state.coverage.toFixed(1)}%. Press R to mow again.`);
+  function drawReviewButtons() {
+    const buttons = getReviewButtons();
+    for (const button of buttons) {
+      ctx.save();
+      drawRoundedRect(button.x, button.y, button.w, button.h, 12);
+      ctx.fillStyle = button.id === 'accept' ? '#2d7f49' : '#a34b3f';
+      if (!button.enabled) {
+        ctx.fillStyle = 'rgba(90, 90, 90, 0.7)';
+      }
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(236, 233, 218, 0.95)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.fillStyle = '#f4f0e0';
+      ctx.font = 'bold 22px "Trebuchet MS", sans-serif';
+      const textWidth = ctx.measureText(button.label).width;
+      ctx.fillText(button.label, button.x + (button.w - textWidth) * 0.5, button.y + 33);
+      ctx.restore();
     }
   }
 
-  function drawSteeringHud() {
-    const panelX = WORLD.width - 250;
-    const panelY = 18;
-    const panelW = 224;
-    const panelH = 56;
-    const trackX = panelX + 14;
-    const trackY = panelY + 31;
-    const trackW = panelW - 28;
-
-    ctx.fillStyle = 'rgb(20 30 24 / 70%)';
-    ctx.fillRect(panelX, panelY, panelW, panelH);
-
-    ctx.fillStyle = '#f4f0e0';
-    ctx.font = '14px "Trebuchet MS", sans-serif';
-    ctx.fillText('Steering', panelX + 14, panelY + 19);
-
-    ctx.strokeStyle = '#d8d1b8';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(trackX, trackY);
-    ctx.lineTo(trackX + trackW, trackY);
-    ctx.stroke();
-
-    const centerX = trackX + trackW * 0.5;
-    ctx.strokeStyle = '#f4f0e0';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(centerX, trackY - 8);
-    ctx.lineTo(centerX, trackY + 8);
-    ctx.stroke();
-
-    const knobX = centerX + state.steerDisplay * (trackW * 0.5);
-    ctx.fillStyle = '#d94a3c';
-    ctx.beginPath();
-    ctx.arc(knobX, trackY, 7, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
   function overlayMessage(title, subtitle, offset = 0) {
-    const w = 580;
-    const h = 90;
+    const w = 620;
+    const h = 92;
     const x = (WORLD.width - w) * 0.5;
     const y = (WORLD.height - h) * 0.5 + offset;
 
@@ -742,38 +995,124 @@
     ctx.strokeRect(x, y, w, h);
 
     ctx.fillStyle = '#f4f0e0';
-    ctx.font = 'bold 28px "Trebuchet MS", sans-serif';
+    ctx.font = 'bold 27px "Trebuchet MS", sans-serif';
     ctx.fillText(title, x + 24, y + 38);
     ctx.font = '16px "Trebuchet MS", sans-serif';
     ctx.fillText(subtitle, x + 24, y + 65);
   }
 
-  function render() {
-    drawScene();
-    drawMower();
-    drawUi();
+  function drawUi() {
+    ctx.fillStyle = 'rgb(20 30 24 / 72%)';
+    ctx.fillRect(16, 12, 350, 102);
+
+    ctx.fillStyle = '#f4f0e0';
+    ctx.font = '16px "Trebuchet MS", sans-serif';
+    ctx.fillText(`Coverage: ${state.coverage.toFixed(1)}%`, 28, 34);
+    ctx.fillText(`Target: ${scene.targetCoverage}%`, 28, 56);
+    ctx.fillText(`Cash: $${state.cash}`, 28, 78);
+    ctx.fillText(`Crashes: ${state.totalCrashes}`, 150, 78);
+    ctx.fillText(`Mode: ${state.mode}`, 150, 56);
+    ctx.fillText(`Music: ${state.musicMuted ? 'Off' : 'On'} (M)`, 150, 34);
+
+    if (state.mode === 'start') {
+      overlayMessage('MoGrassMoMoney', 'Draw a mowing path with left mouse. Accept to run it, or Retry to redraw.');
+      overlayMessage('Click to begin planning', 'Press R to reset, F for fullscreen, M to toggle music.', 40);
+    } else if (state.mode === 'review') {
+      overlayMessage('Review Path', 'Click Accept to execute this route, or Retry to draw again.');
+      drawReviewButtons();
+    } else if (state.mode === 'animating') {
+      overlayMessage('Executing Route', 'Mower is following your planned path. Hold Space to fast-forward.', -226);
+    } else if (state.mode === 'won') {
+      overlayMessage('Job complete!', `Coverage ${state.coverage.toFixed(1)}%. Final cash: $${state.cash}. Press R to restart.`);
+    } else if (state.mode === 'drawing' && pathState.draftPoints.length < 2) {
+      overlayMessage('Plan Your Route', 'Click and drag to draw a mow path.', -226);
+    }
+
+    if (state.transientMessage) {
+      overlayMessage(state.transientMessage, 'Adjust your path and try again.', 220);
+    }
   }
 
-  function resetGame(startPlaying) {
+  function drawPenaltyPopups() {
+    for (const popup of penaltyPopups) {
+      const alpha = clamp(popup.ttl / popup.maxTtl, 0, 1);
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = '#ff3d3d';
+      ctx.font = 'bold 20px "Trebuchet MS", sans-serif';
+      ctx.fillText(popup.text, popup.x, popup.y);
+      ctx.restore();
+    }
+  }
+
+  function drawPointerBrush() {
+    if (!(state.mode === 'drawing' && input.pointerDown)) {
+      return;
+    }
+
+    ctx.save();
+    ctx.strokeStyle = 'rgba(232, 248, 255, 0.95)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(input.pointer.x, input.pointer.y, pathState.brushRadius, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawRouteLayers() {
+    if (state.mode === 'animating' && pathState.playbackPoints.length > 1) {
+      drawPathOverlay(pathState.playbackPoints, {
+        centerColor: '#101010',
+        centerWidth: 2,
+        centerDash: [8, 6],
+        showBrush: false,
+        smoothCenter: true,
+      });
+      return;
+    }
+
+    if ((state.mode === 'drawing' || state.mode === 'review') && pathState.draftPoints.length > 1) {
+      drawPathOverlay(pathState.draftPoints, {
+        fillColor: 'rgba(71, 166, 225, 0.32)',
+        centerColor: '#f7fdff',
+        centerWidth: 2,
+      });
+    }
+  }
+
+  function render() {
+    drawScene();
+    drawRouteLayers();
+    drawMower();
+    drawPointerBrush();
+    drawUi();
+    drawPenaltyPopups();
+  }
+
+  function resetGame(startDrawing = false) {
     mower.x = scene.lawn.x + 72;
     mower.y = scene.lawn.y + 58;
     mower.heading = 0;
-    mower.speed = 0;
+
     state.elapsed = 0;
     state.lastWinAt = null;
-    state.steerDisplay = 0;
-    input.leftDown = false;
-    input.rightDown = false;
-    input.prevMouse.x = mower.x;
-    input.prevMouse.y = mower.y;
-    initMowGrid();
-    state.mode = startPlaying ? 'playing' : 'start';
-  }
+    state.coverage = 0;
+    state.cash = 0;
+    state.totalCrashes = 0;
+    state.lastPenalty = 0;
+    state.transientMessage = '';
+    state.transientTimer = 0;
 
-  function startGame() {
-    if (state.mode === 'start') {
-      state.mode = 'playing';
-    }
+    input.pointerDown = false;
+    input.pointer = { x: mower.x, y: mower.y };
+    input.fastForward = false;
+
+    clearDraftPath();
+    clearPlaybackPath();
+    penaltyPopups.length = 0;
+
+    initMowGrid();
+    state.mode = startDrawing ? 'drawing' : 'start';
   }
 
   function canvasPointFromEvent(event) {
@@ -790,39 +1129,57 @@
 
   canvas.addEventListener('mousedown', (event) => {
     ensureMusicStarted();
-    const pt = canvasPointFromEvent(event);
-    input.mouse = pt;
-    input.prevMouse = { ...pt };
+    const point = canvasPointFromEvent(event);
+    input.pointer = { ...point };
 
-    if (event.button === 0) {
-      input.leftDown = true;
-      startGame();
+    if (event.button !== 0) {
+      return;
     }
 
-    if (event.button === 2 && state.mode !== 'won') {
-      input.rightDown = true;
-      startGame();
+    if (state.mode === 'review') {
+      handleReviewClick(point);
+      return;
     }
-  });
 
-  canvas.addEventListener('mouseup', (event) => {
-    if (event.button === 0) input.leftDown = false;
-    if (event.button === 2) input.rightDown = false;
+    if (state.mode === 'won') {
+      return;
+    }
+
+    if (state.mode === 'start' || state.mode === 'drawing') {
+      beginDrawing(point);
+    }
   });
 
   canvas.addEventListener('mousemove', (event) => {
-    const pt = canvasPointFromEvent(event);
-    input.mouse = pt;
-    input.prevMouse = { ...pt };
+    const point = canvasPointFromEvent(event);
+    input.pointer = { ...point };
+
+    if (!(input.pointerDown && state.mode === 'drawing')) {
+      return;
+    }
+
+    addDraftPoint(point);
+  });
+
+  canvas.addEventListener('mouseup', (event) => {
+    if (event.button !== 0) {
+      return;
+    }
+
+    if (input.pointerDown) {
+      finalizeDrawing();
+    }
   });
 
   window.addEventListener('mouseup', () => {
-    input.leftDown = false;
-    input.rightDown = false;
+    if (input.pointerDown) {
+      finalizeDrawing();
+    }
   });
 
   window.addEventListener('keydown', (event) => {
     ensureMusicStarted();
+
     if (event.key.toLowerCase() === 'f') {
       if (document.fullscreenElement) {
         document.exitFullscreen();
@@ -839,33 +1196,86 @@
       setMusicMuted(!music.muted);
     }
 
+    if (event.code === 'Space' && state.mode === 'animating') {
+      input.fastForward = true;
+      event.preventDefault();
+      return;
+    }
+
     if (event.key === ' ' && state.mode === 'start') {
-      state.mode = 'playing';
+      state.mode = 'drawing';
+      event.preventDefault();
+    }
+  });
+
+  window.addEventListener('keyup', (event) => {
+    if (event.code === 'Space') {
+      input.fastForward = false;
     }
   });
 
   function renderGameToText() {
-    const visibleObstacles = obstacles.map((o) =>
+    const visibleObstacles = obstacles.map((o) => (
       o.kind === 'circle'
         ? { id: o.id, kind: o.kind, x: o.x, y: o.y, r: o.r }
         : { id: o.id, kind: o.kind, x: o.x, y: o.y, w: o.w, h: o.h }
-    );
+    ));
+
+    const reviewButtons = getReviewButtons().map((button) => ({
+      id: button.id,
+      label: button.label,
+      x: Number(button.x.toFixed(2)),
+      y: Number(button.y.toFixed(2)),
+      w: Number(button.w.toFixed(2)),
+      h: Number(button.h.toFixed(2)),
+      enabled: Boolean(button.enabled),
+    }));
 
     const payload = {
       coordinate_system: 'origin top-left; +x right; +y down; units in canvas pixels',
       mode: state.mode,
       coverage_percent: Number(state.coverage.toFixed(2)),
       target_percent: scene.targetCoverage,
+      planning: {
+        is_drawing: state.mode === 'drawing' && input.pointerDown,
+        point_count: pathState.draftPoints.length,
+        path_length_px: Number(pathState.draftLength.toFixed(2)),
+        brush_radius_px: pathState.brushRadius,
+        has_review_path: state.mode === 'review' && pathState.draftPoints.length > 1,
+      },
+      review: {
+        mode_active: state.mode === 'review',
+        buttons: reviewButtons,
+      },
+      playback: {
+        is_animating: state.mode === 'animating',
+        progress_0_to_1: pathState.totalLength > 0
+          ? Number((pathState.progress / pathState.totalLength).toFixed(4))
+          : 0,
+        speed_px_per_sec: mower.playbackSpeed,
+        effective_speed_px_per_sec: input.fastForward
+          ? mower.playbackSpeed * pathState.fastForwardMultiplier
+          : mower.playbackSpeed,
+        flip_active: animationState.flipActive,
+        current_heading_radians: Number(mower.heading.toFixed(3)),
+      },
+      economy: {
+        cash: state.cash,
+        total_crashes: state.totalCrashes,
+        last_penalty: state.lastPenalty,
+      },
+      effects: {
+        active_penalty_popups: penaltyPopups.length,
+      },
       mower: {
         x: Number(mower.x.toFixed(2)),
         y: Number(mower.y.toFixed(2)),
         heading_radians: Number(mower.heading.toFixed(3)),
-        speed_px_per_sec: Number(mower.speed.toFixed(2)),
         body_radius: mower.radius,
         deck_radius: mower.deckRadius,
       },
-      timers: {
-        elapsed_seconds: Number(state.elapsed.toFixed(2)),
+      collision_debug: {
+        overlapping_obstacle_ids: overlappingObstacleIds.slice(),
       },
       map: {
         lawn: scene.lawn,
@@ -874,16 +1284,15 @@
         obstacles: visibleObstacles,
       },
       input: {
-        left_mouse_held: input.leftDown,
-        right_mouse_held: input.rightDown,
-        steering_axis: Number(state.steerDisplay.toFixed(3)),
-        music_muted: state.musicMuted,
-        mouse_target: {
-          x: Number(input.mouse.x.toFixed(1)),
-          y: Number(input.mouse.y.toFixed(1)),
+        pointer_down: input.pointerDown,
+        pointer: {
+          x: Number(input.pointer.x.toFixed(2)),
+          y: Number(input.pointer.y.toFixed(2)),
         },
+        fast_forward: input.fastForward,
+        music_muted: state.musicMuted,
       },
-      objective: 'Mow 95% of mowable grass without crossing boundaries or obstacles.',
+      objective: 'Draw a route, accept it, and mow 95% of mowable grass while minimizing crash penalties.',
     };
 
     return JSON.stringify(payload);

@@ -9,6 +9,36 @@ The player's goal is to make money, "number go up".
 
 The game should balance cozy aesthetic and ambition (like Stardew Valley), with a top-down 2D visual style and somewhat muted, indie-leaning color tones.
 
+## Mini-Game Lens
+Treat each major day action as a potential mini-game lane, but only ship lanes that feel fun and distinct.
+
+### Current Lanes That Fit
+1. `Solicit` (promotion)
+- Flyer Drop: on-foot route mini-game where you deliver flyers across a neighborhood efficiently.
+- Drive-By Flyer Throw: vehicle-based mini-game where timing and positioning affect delivery success.
+- House Picking Layer: pre-run target selection where you choose houses/blocks likely to produce better jobs.
+
+2. `Mow`
+- Existing mowing mini-game remains the core skill expression.
+- One representative mow performance still scales to same-day customer outcomes.
+- Planned extension: a neighborhood navigation layer where houses are visible targets and the player chooses service order by location/risk/value.
+
+3. `Neighborhood Navigation` (planned bridge layer)
+- Navigate around a neighborhood map with house markers (repeat customer, churn risk, qualified lead, value hints).
+- Choose which houses to service based on both vibe and strategy.
+- Keep this as owner-crew control, then scale with an abstract dispatch model for additional crews.
+
+### Lens Rules
+- Keep mini-games short and replayable.
+- Tie each mini-game to a clear tycoon stream (lead volume, lead quality, payout quality, retention risk).
+- Prefer mini-games where real-time play adds meaningful texture over a pure menu choice.
+- Leave actions as strategic decisions until a strong mini-game concept exists.
+
+### Parked for Now
+- `Follow Up Leads`: keep as a strategic/system action for now.
+- `Shop for Hardware`: keep as an economy decision for now.
+- `Crew/Management`: keep as a management layer for now.
+
 # Mow Lawns 
 You will mow lawns in real time using the controller, and paid based on customer satisfaction.
 

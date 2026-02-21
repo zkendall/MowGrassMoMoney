@@ -24,25 +24,29 @@ This POC should prove:
 - Polished VFX/audio beyond basic feedback.
 
 ## Core Gameplay
-Player drives a lawn mower around a single yard. As the mower cuts grass, lawn tiles/splat areas change from an unmowed visual to a mowed visual.
+Player plans a mowing route by drawing it, reviews that route, then watches the mower execute it. As the mower runs the accepted route, lawn cells change from unmowed to mowed.
 
 ### Controls (POC)
-- Hold mouse click to drive mower forward.
-- Move cursor left/right relative to mower heading to steer.
-- Release mouse click to stop mower movement.
-- Optional: secondary mouse button for reverse.
-- Mower blade is always on during prototype play.
+- Left-click + drag to draw a route using a circular brush overlay.
+- Release to enter review mode.
+- In review mode, click `Accept` to execute the route or `Retry` to redraw.
+- During animation, hold `Space` to fast-forward playback.
+- `F` toggles fullscreen, `R` resets progress, and `M` toggles music.
 
 ### Mowing Rules
 - Grass starts in `unmowed` state.
 - Grass under mower deck changes to `mowed`.
 - Mowed grass stays mowed (no regrowth in-session).
-- Coverage percent updates in real time.
-- Level completes when coverage reaches target threshold (example: 95%).
+- Coverage percent updates as the accepted route is animated.
+- Coverage persists across route attempts until reset.
+- The level completes when an animation run finishes and coverage is at least the target threshold (95%).
+- During playback, only the centerline is shown (black dashed line); brush swath visualization is hidden.
 
 ### Failure/Constraint Rules (Minimal)
-- Colliding with obstacle blocks movement.
-- Timer is optional for first pass; if used, keep generous (example: 5 minutes).
+- Crash checks use the route centerline position (line-overlap behavior), not mower body width.
+- On each obstacle entry overlap during playback, the mower performs a flip, a red `-$1` popup appears, and animation continues.
+- Route playback is clamped to lawn bounds; leaving bounds does not apply a boundary crash penalty.
+- No timer is used in the current prototype.
 
 ## One Lawn Scene Specification
 Create exactly one small-to-medium suburban lawn designed for readability.
@@ -107,16 +111,16 @@ Create separate files/assets for each object (no single merged scene painting).
 
 ## Success Criteria
 POC is successful when all conditions are true:
-- Player can drive mower smoothly in top-down view.
+- Player can draw, review, and execute routes in a clear loop.
 - Lawn clearly transitions between unmowed and mowed visuals.
-- Coverage percentage reaches completion target and ends level.
-- Obstacles create light routing decisions without frustration.
+- Coverage percentage can be built over multiple runs and reaches completion target.
+- Obstacles create routing decisions with clear feedback via line-overlap crash penalties.
 - All scene objects are separate assets.
 
 ## Build Order
 1. Block out lawn scene and boundaries.
-2. Implement mower movement and collision.
-3. Implement mow-state system (unmowed -> mowed).
-4. Add coverage tracking + win condition.
-5. Hook up simple temporary art assets.
-6. Replace with final minimal POC assets.
+2. Implement route drawing + review flow (`Accept` / `Retry`).
+3. Implement route playback animation and mow-state updates (unmowed -> mowed).
+4. Add crash handling, penalties, and feedback during playback.
+5. Add coverage tracking with end-of-route win evaluation.
+6. Hook up simple temporary art assets and polish readability.

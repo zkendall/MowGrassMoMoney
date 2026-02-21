@@ -222,6 +222,8 @@ POC is successful when all are true:
 7. Verified via Playwright state snapshots and screenshots.
 
 ## Open Questions (Next Iteration)
+- Should `Mow Lawns` begin with a neighborhood day-map pass where the player chooses houses by marked risk/value/location before entering mowing?
+- If we add neighborhood navigation, should only the owner crew be map-controlled while additional crews use abstract dispatch?
 - Should day job cap scale with mower tier?
 - Should we split quality into coverage + line-cleanness scores for meta resolution?
 - Should active customers panel include quick-sort filters (risk/high-value/preference)?

@@ -32,6 +32,37 @@ Use upgrades as the main progression language for the tycoon layer.
 4. Tiered upgrade identity:
 - Each upgrade tree should have clear tiers, increasing cost, and visible output impact.
 
+## Neighborhood Navigation Lens (Planned)
+
+Use a neighborhood day map to make work selection feel spatial, cozy, and player-driven.
+
+1. Day-map phase before mowing:
+- Add a `neighborhood_map` step before job execution.
+- Player moves around the neighborhood and chooses which houses to service.
+
+2. House readability:
+- Houses should show quick markers for:
+  - repeat customer status,
+  - days-since-service risk,
+  - qualified lead status,
+  - expected payout/value band.
+
+3. Decision pressure:
+- Route and stop order should consume limited day resources (time/fuel/capacity).
+- Player should decide between:
+  - retaining at-risk repeat customers,
+  - taking high-value new jobs,
+  - minimizing travel inefficiency.
+
+4. Mow integration:
+- Enter mowing gameplay from selected houses on the map.
+- Keep representative-score fallback for non-played jobs so this can ship incrementally.
+
+5. Scaling past one crew:
+- Owner crew remains directly controlled on the neighborhood map.
+- Additional crews are managed via an abstract dispatch layer (sector + priority + job limits).
+- Optional future rule: player can manually "drop in" on one high-impact job across all crews.
+
 ## Current Playable Spec (Implemented)
 
 ### Core Day Loop
@@ -168,7 +199,12 @@ When adding a feature, define it in this order:
 
 ## Suggested Next Feature Ideas (Upgrade-Oriented, Not Yet Implemented)
 
-1. Solicitation Upgrades
+1. Neighborhood Day Map and Routing
+- Add a neighborhood navigation phase where house choice and route order are player-driven.
+- Surface repeat/lead/risk/value markers directly on houses.
+- Design intent: increase vibe and agency in who gets serviced each day while preserving tycoon trade-offs.
+
+2. Solicitation Upgrades
 - Add a purchasable solicitation tree to improve response volume.
 - Candidate upgrades:
   - newspaper ads
@@ -177,7 +213,7 @@ When adding a feature, define it in this order:
   - social media ads
 - Design intent: improve solicit success chance and/or generated lead count.
 
-2. Lead Qualification Upgrades
+3. Lead Qualification Upgrades
 - Add a purchasable follow-up tree to improve qualification outcomes.
 - Candidate upgrades:
   - take a sales class
@@ -186,7 +222,7 @@ When adding a feature, define it in this order:
   - automate the process with AI
 - Design intent: improve raw->qualified conversion rate and/or reduce qualification friction.
 
-3. Crew Building and Management
+4. Crew Building and Management
 - Add hiring and crew-management progression.
 - Core goals:
   - hire additional employees,
@@ -194,14 +230,14 @@ When adding a feature, define it in this order:
   - manage crew cost/performance.
 - Design intent: unlock higher daily capacity and introduce labor-management trade-offs.
 
-4. Pricing and Contracts
+5. Pricing and Contracts
 - Add per-job pricing decisions and customer acceptance sensitivity.
 - Extend the cash stream with margin-management trade-offs.
 
-5. Capacity and Scheduling
+6. Capacity and Scheduling
 - Add time/capacity constraints and routing pressure.
 - Tighten retention-vs-revenue decisions.
 
-6. Reputation and Referrals
+7. Reputation and Referrals
 - Add reputation as a stream driven by quality and reliability.
 - Use referrals as a second acquisition branch beside solicitation.

@@ -15,20 +15,19 @@ Open: `http://localhost:4173`
 
 ## Controls
 
-- Hold left mouse: drive forward + mow
-- Move cursor left/right of mower heading: steer
-- Hold right mouse: reverse
-- Release mouse button(s): stop
+- Left-click + drag: draw a mow route with the brush overlay
+- In review mode: click `Accept` to run the route or `Retry` to redraw
+- While route animation is running: hold `Space` to fast-forward mower playback
 - `F`: fullscreen toggle
 - `R`: reset
+- `M`: music mute toggle
 
 ## Win condition
 
-Reach 95% mow coverage.
+Reach 95% mow coverage at the end of an accepted route animation.
 
+## Current Behavior Notes
 
-# Ideas
-
-## Mechanics
-We gotta figure out smooth/fun mechanics
-Maybe just have the user draw on the screen with their finger/cursor, which draws a continuous thick band overlay. Then they can confirm it, which shows the mower following that path. This seems more chill and easier to get comfortable than real-time steering of the mower.
+- Progress persists across multiple accepted routes until reset.
+- During animation, the route is shown as a smoothed black dashed centerline (brush overlay hidden).
+- Crash penalties trigger when the route centerline overlaps an obstacle; each entry overlap applies `-$1` and a flip animation.
