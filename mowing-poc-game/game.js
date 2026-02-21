@@ -44,6 +44,8 @@
       deckRadius: 22,
       fuelCapacity: 0,
       fuelBurnPerPixel: 0,
+      spriteFrame: { x: 0, y: 0, w: 256, h: 256 },
+      spriteDraw: { w: 50, h: 50 },
     },
     small_gas: {
       id: 'small_gas',
@@ -52,6 +54,8 @@
       deckRadius: 26,
       fuelCapacity: 0.5,
       fuelBurnPerPixel: 0.0002,
+      spriteFrame: { x: 256, y: 0, w: 256, h: 256 },
+      spriteDraw: { w: 54, h: 54 },
     },
     large_rider: {
       id: 'large_rider',
@@ -60,6 +64,9 @@
       deckRadius: 34,
       fuelCapacity: 1.5,
       fuelBurnPerPixel: 0.00032,
+      // Tight crop of row 2, col 3 orange rider to avoid neighboring bleed.
+      spriteFrame: { x: 537, y: 348, w: 192, h: 164 },
+      spriteDraw: { w: 72, h: 72 },
     },
   };
   const DEFAULT_MOWER_TYPE_ID = 'small_gas';
@@ -1188,6 +1195,13 @@
     mower.fuelCapacity = mowerType.fuelCapacity;
     mower.fuelBurnPerPixel = mowerType.fuelBurnPerPixel;
     mower.fuel = mower.fuelCapacity;
+    if (mowerType.spriteFrame) {
+      mowerSprite.frame = { ...mowerType.spriteFrame };
+    }
+    if (mowerType.spriteDraw) {
+      mowerSprite.drawW = mowerType.spriteDraw.w;
+      mowerSprite.drawH = mowerType.spriteDraw.h;
+    }
     pathState.brushRadius = mower.deckRadius;
 
     mower.x = activeScene.lawn.x + 72;
