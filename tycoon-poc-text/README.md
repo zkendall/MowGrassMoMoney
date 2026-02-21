@@ -87,10 +87,13 @@ Install dependencies once:
 Primary test files:
 
 - Config: `tycoon-poc-text/playwright.config.js`
+- Shared harness core utilities: `tycoon-poc-text/tests/harness/*.js` (`scenario`, `runtime`, `steps`, `artifacts`)
 - Regression suite: `tycoon-poc-text/tests/regression.spec.js`
 - Regression scenarios fixture (seed/start state/steps): `tycoon-poc-text/tests/fixtures/regression-step-plans.json`
 - Quick-verify walkthrough: `tycoon-poc-text/tests/quick-verify.spec.js`
 - Quick-verify fixture (seed/start state/steps): `tycoon-poc-text/tests/fixtures/quick-verify-step-plans.json`
+- Long playthrough walkthrough: `tycoon-poc-text/tests/long-playthrough.spec.js`
+- Long-playthrough fixture (seed/start state/steps): `tycoon-poc-text/tests/fixtures/long-playthrough-step-plans.json`
 
 ### Common Commands
 
@@ -106,6 +109,11 @@ Run quick verify:
 
 - `cd tycoon-poc-text && npx playwright test tests/quick-verify.spec.js --config=playwright.config.js`
 - Headed mode: `cd tycoon-poc-text && npx playwright test tests/quick-verify.spec.js --config=playwright.config.js --headed`
+
+Run long full-playthrough verify:
+
+- `cd tycoon-poc-text && npx playwright test tests/long-playthrough.spec.js --config=playwright.config.js`
+- Headed mode: `cd tycoon-poc-text && npx playwright test tests/long-playthrough.spec.js --config=playwright.config.js --headed`
 
 Run headed regression:
 
@@ -129,4 +137,6 @@ Quick-verify outputs are timestamped under `output/`:
 - `<UTC-timestamp>-verify-web-game/`
 - matching probe file: `<UTC-timestamp>-verify-probe.json`
 
-NPM scripts `test:regression`, `test:regression:update`, and `verify:quick` call Playwright Test directly. Set `TYCOON_BASE_URL` only when you need a non-default target URL.
+Core Playwright mechanics are shared in `tests/harness/*` (state polling, mode waits, keypress helpers, scenario loading/URL building, and step-run wrappers). Suite-specific operations and assertions remain local inside each `*.spec.js`.
+
+NPM scripts `test:regression`, `test:regression:update`, `verify:quick`, and `verify:long` call Playwright Test directly. Set `TYCOON_BASE_URL` only when you need a non-default target URL.

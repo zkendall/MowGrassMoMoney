@@ -2,6 +2,10 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { test, expect } = require('playwright/test');
 const { writeSummary } = require('./helpers/summarize-verify-states.js');
+const { loadScenarioFromFixture, buildScenarioUrl } = require('./harness/scenario.js');
+const { createRuntime } = require('./harness/runtime.js');
+const { runSteps } = require('./harness/steps.js');
+const { timestampRunId } = require('./harness/artifacts.js');
 
 const ROOT_DIR = path.resolve(__dirname, '..');
 const OUTPUT_ROOT = path.join(ROOT_DIR, 'output');
@@ -9,57 +13,16 @@ const VERIFY_LABEL = 'verify';
 const HEADED_ACTION_DELAY_MS = 450;
 const DEFAULT_START_STATE = 'default';
 const QUICK_STEP_PLANS_PATH = path.join(__dirname, 'fixtures', 'quick-verify-step-plans.json');
-const QUICK_STEP_PLANS = JSON.parse(fs.readFileSync(QUICK_STEP_PLANS_PATH, 'utf8'));
-
-function timestampRunId() {
-  const d = new Date();
-  const two = (value) => String(value).padStart(2, '0');
-  const three = (value) => String(value).padStart(3, '0');
-  return [
-    d.getUTCFullYear(),
-    two(d.getUTCMonth() + 1),
-    two(d.getUTCDate()),
-    'T',
-    two(d.getUTCHours()),
-    two(d.getUTCMinutes()),
-    two(d.getUTCSeconds()),
-    three(d.getUTCMilliseconds()),
-    'Z',
-  ].join('');
-}
-
-function readScenarioConfig(name) {
-  const scenario = QUICK_STEP_PLANS[name];
-  if (!scenario || typeof scenario !== 'object') {
-    throw new Error(`Missing quick-verify scenario config: ${name}`);
-  }
-  if (!Array.isArray(scenario.steps)) {
-    throw new Error(`Quick-verify scenario "${name}" is missing steps[]`);
-  }
-  return {
-    seed: Number.isFinite(scenario.seed) ? scenario.seed : null,
-    start_state: typeof scenario.start_state === 'string'
-      ? scenario.start_state
-      : DEFAULT_START_STATE,
-    steps: scenario.steps,
-  };
-}
-
-function buildScenarioUrl(baseURL, scenario) {
-  const url = new URL(baseURL);
-  if (Number.isFinite(scenario.seed)) {
-    url.searchParams.set('seed', String(scenario.seed));
-  }
-  if (scenario.start_state && scenario.start_state !== DEFAULT_START_STATE) {
-    url.searchParams.set('start_state', scenario.start_state);
-  }
-  return url.toString();
-}
 
 test('quick_verify_walkthrough', async ({ page }, testInfo) => {
-  const scenario = readScenarioConfig('quick_verify_walkthrough');
+  const scenario = loadScenarioFromFixture({
+    fixturePath: QUICK_STEP_PLANS_PATH,
+    scenarioName: 'quick_verify_walkthrough',
+    defaultSeed: null,
+    defaultStartState: DEFAULT_START_STATE,
+  });
   const baseURL = testInfo.project.use.baseURL || 'http://127.0.0.1:4174';
-  const verifyUrl = buildScenarioUrl(baseURL, scenario);
+  const verifyUrl = buildScenarioUrl(baseURL, scenario, DEFAULT_START_STATE);
   const runId = timestampRunId();
   const webGameDir = path.join(OUTPUT_ROOT, `${runId}-${VERIFY_LABEL}-web-game`);
   const probePath = path.join(OUTPUT_ROOT, `${runId}-${VERIFY_LABEL}-probe.json`);
@@ -68,8 +31,22 @@ test('quick_verify_walkthrough', async ({ page }, testInfo) => {
   fs.mkdirSync(webGameDir, { recursive: true });
 
   const isHeadless = testInfo.project.use.headless !== false;
-  const actionDelayMs = isHeadless ? 0 : HEADED_ACTION_DELAY_MS;
-  const pollDelayMs = isHeadless ? 10 : 60;
+  const runtime = createRuntime({
+    page,
+    isHeadless,
+    actionDelayMsHeaded: HEADED_ACTION_DELAY_MS,
+    pollDelayMsHeaded: 60,
+    pollDelayMsHeadless: 10,
+  });
+  const {
+    actionDelayMs,
+    readState,
+    waitForRenderApi,
+    waitForMode,
+    press,
+    moveDayActionCursorTo,
+    completeProcessing,
+  } = runtime;
 
   page.on('console', (msg) => {
     if (msg.type() === 'error') {
@@ -79,75 +56,6 @@ test('quick_verify_walkthrough', async ({ page }, testInfo) => {
   page.on('pageerror', (error) => {
     errors.push({ type: 'pageerror', text: String(error) });
   });
-
-  async function readState() {
-    const raw = await page.evaluate(() => {
-      if (typeof window.render_game_to_text !== 'function') return null;
-      return window.render_game_to_text();
-    });
-    if (!raw) throw new Error('render_game_to_text unavailable');
-    return JSON.parse(raw);
-  }
-
-  async function waitForRenderApi(timeoutMs = 6000) {
-    const started = Date.now();
-    while (Date.now() - started < timeoutMs) {
-      const ready = await page.evaluate(() => typeof window.render_game_to_text === 'function');
-      if (ready) return;
-      await page.waitForTimeout(pollDelayMs);
-    }
-    throw new Error('render_game_to_text unavailable');
-  }
-
-  async function waitForMode(mode, timeoutMs = 6000) {
-    const started = Date.now();
-    while (Date.now() - started < timeoutMs) {
-      const state = await readState();
-      if (state.mode === mode) return state;
-      await page.waitForTimeout(pollDelayMs);
-    }
-    throw new Error(`Timed out waiting for mode=${mode}`);
-  }
-
-  async function waitForModeNot(mode, timeoutMs = 6000) {
-    const started = Date.now();
-    while (Date.now() - started < timeoutMs) {
-      const state = await readState();
-      if (state.mode !== mode) return state;
-      await page.waitForTimeout(pollDelayMs);
-    }
-    throw new Error(`Timed out waiting for mode!=${mode}`);
-  }
-
-  async function press(key, waitMs = actionDelayMs) {
-    await page.keyboard.press(key);
-    if (waitMs > 0) {
-      await page.waitForTimeout(waitMs);
-    }
-  }
-
-  async function moveDayActionCursorTo(targetCursor) {
-    let state = await waitForMode('day_action');
-    while (state.day_action.cursor < targetCursor) {
-      await press('ArrowDown');
-      state = await readState();
-    }
-    while (state.day_action.cursor > targetCursor) {
-      await press('ArrowUp');
-      state = await readState();
-    }
-  }
-
-  async function completeProcessing(durationMs = 1200, requireConfirm = true) {
-    await waitForMode('processing');
-    if (!isHeadless && durationMs > 0) {
-      await page.waitForTimeout(durationMs);
-    }
-    if (requireConfirm) {
-      await press('Enter', 350);
-    }
-    await waitForModeNot('processing');
-  }
 
   async function executeStep(step) {
     const times = Number.isFinite(step.times) ? step.times : 1;
@@ -177,7 +85,12 @@ test('quick_verify_walkthrough', async ({ page }, testInfo) => {
     }
 
     if (step.op === 'complete_processing') {
-      await completeProcessing(step.duration_ms || 1200, step.require_confirm !== false);
+      await completeProcessing({
+        durationMs: step.duration_ms || 1200,
+        requireConfirm: step.require_confirm !== false,
+        confirmWaitMs: 350,
+        waitPolicy: 'headed-only',
+      });
       return;
     }
 
@@ -213,25 +126,13 @@ test('quick_verify_walkthrough', async ({ page }, testInfo) => {
     throw new Error(`Unknown quick-verify step op: ${step.op}`);
   }
 
-  async function executePlan(steps) {
-    for (let i = 0; i < steps.length; i += 1) {
-      const step = steps[i];
-      try {
-        await executeStep(step);
-      } catch (error) {
-        const prefix = `Step ${i + 1}/${steps.length}${step.desc ? ` (${step.desc})` : ''}`;
-        throw new Error(`${prefix} failed: ${error.message || error}`);
-      }
-    }
-  }
-
   await page.goto(verifyUrl, { waitUntil: 'domcontentloaded' });
   await waitForRenderApi();
   if (!isHeadless) {
     await page.waitForTimeout(700);
   }
 
-  await executePlan(scenario.steps);
+  await runSteps(scenario.steps, executeStep);
 
   await page.screenshot({ path: path.join(webGameDir, 'shot-0.png'), fullPage: true });
   const stateText = await page.evaluate(() => {

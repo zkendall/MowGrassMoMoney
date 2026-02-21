@@ -1,0 +1,43 @@
+{
+  "long_full_playthrough": {
+    "seed": 2,
+    "start_state": "default",
+    "steps": [
+      {
+        "desc": "Solicit repeatedly until at least one raw lead exists",
+        "op": "solicit_until_raw_leads",
+        "min_raw_leads": 1,
+        "max_attempts": 8
+      },
+      {
+        "desc": "Follow up repeatedly until at least one qualified lead exists",
+        "op": "follow_up_until_qualified_leads",
+        "min_qualified_leads": 1,
+        "max_attempts": 8
+      },
+      {
+        "desc": "Mow and accept offers until at least one repeat customer is converted",
+        "op": "mow_until_repeat_customers",
+        "min_repeat_customers": 1,
+        "max_attempts": 4,
+        "max_job_select": 3,
+        "score_presses": 20
+      },
+      {
+        "desc": "Run the hardware shop day action",
+        "op": "shop_hardware_day",
+        "shop_choice": "buy_or_skip"
+      },
+      {
+        "desc": "Ensure hardware report is visible",
+        "op": "assert_last_report_activity",
+        "activity": "shop_hardware"
+      },
+      {
+        "desc": "Ensure all core day actions were covered",
+        "op": "assert_report_activities_seen",
+        "activities": ["solicit", "follow_up", "mow", "shop_hardware"]
+      }
+    ]
+  }
+}
