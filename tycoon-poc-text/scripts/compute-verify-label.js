@@ -46,7 +46,7 @@ function buildLabel(changed) {
   if (has(/(^|\/)game\.js$/)) categories.push('gameplay');
   if (has(/(^|\/)(index\.html|styles\.css)$/)) categories.push('ui');
   if (has(/(^|\/)(README\.md|POC-Tycoon\.md|progress\.md)$/)) categories.push('docs');
-  if (has(/(^|\/)scripts\/(verify-tycoon\.sh|verify-tycoon-quick\.sh|verify-tycoon-quick\.js|verify-tycoon-headed-runner\.js|compute-verify-label\.js|summarize-verify-states\.js)$/)) categories.push('verify');
+  if (has(/(^|\/)scripts\/(verify-tycoon\.sh|verify-tycoon-quick\.sh|verify-tycoon-quick\.js|verify-tycoon-headed-runner\.js|run-regression-tests\.js|compute-verify-label\.js|summarize-verify-states\.js)$/)) categories.push('verify');
 
   const leaf = (file) => file.split('/').pop() || file;
   const slug = (value) =>

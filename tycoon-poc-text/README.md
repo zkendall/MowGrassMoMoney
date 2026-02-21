@@ -69,6 +69,7 @@ open "http://127.0.0.1:4174/?seed=2"
 
 ## Snapshot Naming Guideline
 
+- Verify and regression suites share one runner: `scripts/run-regression-tests.js` (different `--suite` modes).
 - Run verification with:
   - `npm --prefix tycoon-poc-text run verify:quick -- --url http://127.0.0.1:4174`
   - headed mode: `npm --prefix tycoon-poc-text run verify:quick -- --url http://127.0.0.1:4174 --headed`
@@ -89,5 +90,8 @@ open "http://127.0.0.1:4174/?seed=2"
   - `npm --prefix tycoon-poc-text run test:rng`
 - Run the golden scenario suite (3 scenarios):
   - `npm --prefix tycoon-poc-text run test:regression -- --url http://127.0.0.1:4174`
+- Runner supports suites explicitly:
+  - regression: `node tycoon-poc-text/scripts/run-regression-tests.js --suite regression --url http://127.0.0.1:4174`
+  - quick verify: `node tycoon-poc-text/scripts/run-regression-tests.js --suite quick --url http://127.0.0.1:4174`
 - Update golden baselines after intentional behavior changes:
   - `node tycoon-poc-text/scripts/run-regression-tests.js --url http://127.0.0.1:4174 --update-golden`

@@ -1,11 +1,18 @@
 #!/usr/bin/env node
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
+const { spawnSync } = require('node:child_process');
 const { chromium } = require('playwright');
+const { computeVerifyLabel } = require('./compute-verify-label.js');
+const { writeSummary } = require('./summarize-verify-states.js');
 
 const ROOT_DIR = path.resolve(__dirname, '..');
 const GOLDEN_DIR = path.join(ROOT_DIR, 'tests', 'golden');
-const OUTPUT_DIR = path.join(ROOT_DIR, 'output', 'regression-tests');
+const REGRESSION_OUTPUT_DIR = path.join(ROOT_DIR, 'output', 'regression-tests');
+const VERIFY_OUTPUT_DIR = path.join(ROOT_DIR, 'output');
+const VERIFY_HISTORY_PATH = path.join(VERIFY_OUTPUT_DIR, '.verify-history.json');
+const VERIFY_HEADED_RUNNER = path.join(ROOT_DIR, 'scripts', 'verify-tycoon-headed-runner.js');
 const STEP_PLANS_PATH = path.join(ROOT_DIR, 'scripts', 'regression-step-plans.json');
 const STEP_PLANS = JSON.parse(fs.readFileSync(STEP_PLANS_PATH, 'utf8'));
 
@@ -14,12 +21,23 @@ function parseArgs(argv) {
     url: 'http://127.0.0.1:4174',
     updateGolden: false,
     headless: true,
+    suite: 'regression',
   };
   for (let i = 2; i < argv.length; i += 1) {
     const arg = argv[i];
     const next = argv[i + 1];
     if (arg === '--url' && next) {
       args.url = next;
+      i += 1;
+    } else if (arg === '--suite') {
+      if (!next) {
+        throw new Error('--suite requires one of: regression, quick, all');
+      }
+      const suite = String(next).trim().toLowerCase();
+      if (!['regression', 'quick', 'all'].includes(suite)) {
+        throw new Error('--suite must be one of: regression, quick, all');
+      }
+      args.suite = suite;
       i += 1;
     } else if (arg === '--update-golden') {
       args.updateGolden = true;
@@ -41,6 +59,41 @@ function parseArgs(argv) {
     }
   }
   return args;
+}
+
+function withStartState(urlString) {
+  const url = new URL(urlString);
+  if (!url.searchParams.has('start_state')) {
+    url.searchParams.set('start_state', 'test_all_actions');
+  }
+  return url.toString();
+}
+
+function timestampRunId() {
+  const d = new Date();
+  const two = (value) => String(value).padStart(2, '0');
+  const three = (value) => String(value).padStart(3, '0');
+  return [
+    d.getUTCFullYear(),
+    two(d.getUTCMonth() + 1),
+    two(d.getUTCDate()),
+    'T',
+    two(d.getUTCHours()),
+    two(d.getUTCMinutes()),
+    two(d.getUTCSeconds()),
+    three(d.getUTCMilliseconds()),
+    'Z',
+  ].join('');
+}
+
+function runNodeOrThrow(args, options = {}) {
+  const result = spawnSync(process.execPath, args, {
+    stdio: 'inherit',
+    ...options,
+  });
+  if (result.status !== 0) {
+    throw new Error(`Command failed: node ${args.join(' ')}`);
+  }
 }
 
 function withSeed(baseUrl, seed) {
@@ -302,8 +355,7 @@ function assertEqual(name, actual, expected) {
   }
 }
 
-async function main() {
-  const args = parseArgs(process.argv);
+async function runRegressionSuite(args) {
   const browser = await chromium.launch({
     headless: args.headless,
     args: ['--use-gl=angle', '--use-angle=swiftshader'],
@@ -330,25 +382,103 @@ async function main() {
       }
     }
 
-    fs.mkdirSync(OUTPUT_DIR, { recursive: true });
-    fs.writeFileSync(
-      path.join(OUTPUT_DIR, 'latest-summary.json'),
-      JSON.stringify({
-        url: args.url,
-        update_golden: args.updateGolden,
-        scenarios: actual,
-      }, null, 2),
-    );
-
-    console.log(JSON.stringify({
-      status: 'ok',
+    fs.mkdirSync(REGRESSION_OUTPUT_DIR, { recursive: true });
+    const summaryPath = path.join(REGRESSION_OUTPUT_DIR, 'latest-summary.json');
+    const summary = {
+      url: args.url,
+      update_golden: args.updateGolden,
+      scenarios: actual,
+    };
+    fs.writeFileSync(summaryPath, JSON.stringify(summary, null, 2));
+    return {
+      summary,
+      summaryPath,
       scenarios: Object.keys(actual),
-      headless: args.headless,
-      summary: path.join(OUTPUT_DIR, 'latest-summary.json'),
-    }, null, 2));
+    };
   } finally {
     await browser.close();
   }
+}
+
+function runQuickSuite(args) {
+  const stateTmp = path.join(
+    os.tmpdir(),
+    `tycoon-verify-state-${process.pid}-${Date.now()}.json`,
+  );
+  fs.mkdirSync(VERIFY_OUTPUT_DIR, { recursive: true });
+
+  try {
+    const verifyUrl = withStartState(args.url);
+    const runId = timestampRunId();
+    const label = computeVerifyLabel(ROOT_DIR, stateTmp, VERIFY_HISTORY_PATH);
+    const webGameDir = path.join(VERIFY_OUTPUT_DIR, `${runId}-${label}-web-game`);
+    const probePath = path.join(VERIFY_OUTPUT_DIR, `${runId}-${label}-probe.json`);
+
+    console.log(`[verify-tycoon-quick] URL: ${verifyUrl}`);
+    console.log(`[verify-tycoon-quick] Run: ${runId}`);
+    console.log(`[verify-tycoon-quick] Label: ${label}`);
+    console.log(`[verify-tycoon-quick] Browser: ${args.headless ? 'headless' : 'headed'}`);
+    console.log(`[verify-tycoon-quick] Output root: ${VERIFY_OUTPUT_DIR}`);
+
+    runNodeOrThrow(['--check', path.join(ROOT_DIR, 'game.js')]);
+    runNodeOrThrow([VERIFY_HEADED_RUNNER, verifyUrl, webGameDir, String(args.headless)], {
+      cwd: ROOT_DIR,
+    });
+
+    const summary = writeSummary(webGameDir, probePath, runId, label);
+    fs.copyFileSync(stateTmp, VERIFY_HISTORY_PATH);
+
+    console.log('[verify-tycoon-quick] Done.');
+    console.log('[verify-tycoon-quick] Artifacts:');
+    console.log(`  - ${webGameDir}`);
+    console.log(`  - ${probePath}`);
+
+    return {
+      summary,
+      runId,
+      label,
+      webGameDir,
+      probePath,
+    };
+  } finally {
+    if (fs.existsSync(stateTmp)) {
+      fs.unlinkSync(stateTmp);
+    }
+  }
+}
+
+async function main() {
+  const args = parseArgs(process.argv);
+  if (args.updateGolden && args.suite !== 'regression' && args.suite !== 'all') {
+    throw new Error('--update-golden can only be used with --suite regression or --suite all');
+  }
+
+  const result = {
+    status: 'ok',
+    suite: args.suite,
+    headless: args.headless,
+  };
+
+  if (args.suite === 'regression' || args.suite === 'all') {
+    const regression = await runRegressionSuite(args);
+    result.regression = {
+      scenarios: regression.scenarios,
+      summary: regression.summaryPath,
+      update_golden: args.updateGolden,
+    };
+  }
+
+  if (args.suite === 'quick' || args.suite === 'all') {
+    const quick = runQuickSuite(args);
+    result.quick = {
+      run_id: quick.runId,
+      label: quick.label,
+      web_game: quick.webGameDir,
+      probe: quick.probePath,
+    };
+  }
+
+  console.log(JSON.stringify(result, null, 2));
 }
 
 main().catch((error) => {

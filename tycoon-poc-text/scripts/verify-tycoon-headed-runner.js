@@ -17,6 +17,8 @@ if (!url || !outDir) {
 
 async function run() {
   fs.mkdirSync(outDir, { recursive: true });
+  const actionDelayMs = headless ? 0 : 250;
+  const pollDelayMs = headless ? 10 : 60;
 
   const browser = await chromium.launch({
     headless,
@@ -42,12 +44,24 @@ async function run() {
     return JSON.parse(text);
   }
 
+  async function waitForRenderApi(timeoutMs = 6000) {
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+      const ready = await page.evaluate(
+        () => typeof window.render_game_to_text === 'function',
+      );
+      if (ready) return;
+      await page.waitForTimeout(pollDelayMs);
+    }
+    throw new Error('render_game_to_text unavailable');
+  }
+
   async function waitForMode(mode, timeoutMs = 6000) {
     const start = Date.now();
     while (Date.now() - start < timeoutMs) {
       const state = await readState();
       if (state.mode === mode) return state;
-      await page.waitForTimeout(60);
+      await page.waitForTimeout(pollDelayMs);
     }
     throw new Error(`Timed out waiting for mode=${mode}`);
   }
@@ -57,14 +71,16 @@ async function run() {
     while (Date.now() - start < timeoutMs) {
       const state = await readState();
       if (state.mode !== mode) return state;
-      await page.waitForTimeout(60);
+      await page.waitForTimeout(pollDelayMs);
     }
     throw new Error(`Timed out waiting for mode!=${mode}`);
   }
 
-  async function press(key, waitMs = 250) {
+  async function press(key, waitMs = actionDelayMs) {
     await page.keyboard.press(key);
-    await page.waitForTimeout(waitMs);
+    if (waitMs > 0) {
+      await page.waitForTimeout(waitMs);
+    }
   }
 
   async function moveDayActionCursorTo(target) {
@@ -81,13 +97,18 @@ async function run() {
 
   async function finishProcessing(delayMs = 1200) {
     await waitForMode('processing');
-    await page.waitForTimeout(delayMs);
+    if (!headless && delayMs > 0) {
+      await page.waitForTimeout(delayMs);
+    }
     await press('Enter', 200);
     await waitForModeNot('processing');
   }
 
   await page.goto(url, { waitUntil: 'domcontentloaded' });
-  await page.waitForTimeout(500);
+  await waitForRenderApi();
+  if (!headless) {
+    await page.waitForTimeout(500);
+  }
 
   // 1) Solicit
   await moveDayActionCursorTo(0);

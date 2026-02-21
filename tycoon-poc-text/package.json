@@ -6,7 +6,7 @@
   "scripts": {
     "test:regression": "node ./scripts/run-regression-tests.js",
     "test:rng": "node ./scripts/test-rng-determinism.js",
-    "verify:quick": "node ./scripts/verify-tycoon-quick.js",
+    "verify:quick": "node ./scripts/run-regression-tests.js --suite quick",
     "verify:syntax": "node --check game.js"
   },
   "devDependencies": {

@@ -478,3 +478,19 @@ TODO / Next suggestions:
   - Reduced `/Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/scripts/verify-tycoon-quick.sh` to a compatibility wrapper that delegates to the JS runner.
   - Added npm script `verify:quick` and updated `/Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/README.md` verify docs for JS entrypoint + timestamped artifacts.
 - Verification: Verified by `node --check` (verify scripts), `bash -n /Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/scripts/verify-tycoon-quick.sh`, and `/Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/scripts/verify-tycoon-quick.sh http://127.0.0.1:4174`.
+- Verification: Verified by `npm --prefix /Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text run verify:syntax`, `npm --prefix /Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text run test:rng`, `npm --prefix /Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text run test:regression -- --url http://127.0.0.1:4174`, and `npm --prefix /Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text run verify:quick -- --url http://127.0.0.1:4174`.
+- Verification: Measured test suite runtimes (`/usr/bin/time -p`) for `verify:syntax`, `test:rng`, `test:regression`, and `verify:quick` against `http://127.0.0.1:4174`.
+- Documentation: Updated /Users/zkendall/projects/MowGrassMoMoney/AGENTS.md progress-log rules to skip progress.md updates for verification-only runs and clarified verification-note format text.
+- Quick verify headless pacing optimization in `/Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/scripts/verify-tycoon-headed-runner.js`:
+  - Removed human-action delays in headless mode while preserving headed pacing.
+  - Reduced mode polling delay in headless mode.
+  - Added explicit wait for `render_game_to_text` readiness after navigation to avoid startup race without reintroducing fixed waits.
+- Verification: Verified by `node --check /Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/scripts/verify-tycoon-headed-runner.js` and timed run `npm --prefix /Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text run verify:quick -- --url http://127.0.0.1:4174` (`real 8.72s`).
+- Consolidated test orchestration into `/Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/scripts/run-regression-tests.js` while keeping suites separate.
+  - Added `--suite regression|quick|all` support.
+  - Moved quick-verify orchestration (label/history, timestamped artifacts, syntax check, walkthrough execution, probe summary) into the shared runner.
+  - Kept compatibility wrappers by delegating `/Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/scripts/verify-tycoon-quick.js` and `/Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/scripts/verify-tycoon-quick.sh` to the consolidated runner.
+  - Updated `verify:quick` npm script and README usage notes to reflect suite-based runner usage.
+- Verification: Verified by `node --check` (runner/wrapper scripts), `bash -n /Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/scripts/verify-tycoon-quick.sh`, `npm --prefix tycoon-poc-text run test:regression -- --url http://127.0.0.1:4174`, and `npm --prefix tycoon-poc-text run verify:quick -- --url http://127.0.0.1:4174`.
+- Verification labeling update: `/Users/zkendall/projects/MowGrassMoMoney/tycoon-poc-text/scripts/compute-verify-label.js` now classifies `scripts/run-regression-tests.js` changes under `verify` category.
+- Verification: Verified by `node --check` (label/runner scripts), `npm --prefix tycoon-poc-text run test:regression -- --url http://127.0.0.1:4174`, and `npm --prefix tycoon-poc-text run verify:quick -- --url http://127.0.0.1:4174`.
