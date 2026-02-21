@@ -69,6 +69,10 @@ open "http://127.0.0.1:4174/?seed=2"
 
 - Architecture diagram: [`SYSTEM-DESIGN.md`](SYSTEM-DESIGN.md)
 
+## Game Design
+
+- Incremental design spec and feature-expansion lens: [`GAME-DESIGN.md`](GAME-DESIGN.md)
+
 ## Testing
 
 This project uses Playwright Test for regression and quick-verify flows, plus a small RNG determinism unit test.

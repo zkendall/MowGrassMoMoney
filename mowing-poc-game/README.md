@@ -25,3 +25,10 @@ Open: `http://localhost:4173`
 ## Win condition
 
 Reach 95% mow coverage.
+
+
+# Ideas
+
+## Mechanics
+We gotta figure out smooth/fun mechanics
+Maybe just have the user draw on the screen with their finger/cursor, which draws a continuous thick band overlay. Then they can confirm it, which shows the mower following that path. This seems more chill and easier to get comfortable than real-time steering of the mower.

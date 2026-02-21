@@ -103,10 +103,11 @@ These should each have their own aesthetic, and encourage slightly different gam
 - New England (Potential old money)
 - Sunbelt (Low wages, more competition)
 
-## Other Mame Modes [Ignore]
+## Other Game Modes [Ignore]
 - Winter snow shoveling 
 - Fertilizer spreading
 - Influencer mode (Less time to mow, different equipment, the worse house you more the more followers you get)
+- Pot selling :)
 
 
 
